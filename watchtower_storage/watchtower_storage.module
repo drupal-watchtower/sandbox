@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Watchtower storage feature.
+ */
+
+include_once 'watchtower_storage.features.inc';

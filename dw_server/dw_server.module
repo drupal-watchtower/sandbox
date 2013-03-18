@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function dw_server_menu() {
+  $items = array();
+  $items['admin/config/system/watchtower_server'] = array(
+    'title' => 'Drupal Watchtower settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dw_server_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'dw_server.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_xmlrpc().
+ */
+function dw_server_xmlrpc() {
+  return array(
+    'drupal_watchtower.report' => 'dw_server_process_report',
+  );
+}
+
+/**
+ * Processes XML RPC request
+ *
+ * @param $data
+ *
+ * @return string
+ */
+function dw_server_process_report($data) {
+  module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
+
+  $instance = _dw_server_get_instance($data['watchtower_key'], $_SERVER['REMOTE_ADDR'], $data['drupal_root']);
+
+  ksort($data['modules']);
+
+  $instance->field_modules[LANGUAGE_NONE] = array();
+  if ($modules = _dw_server_get_modules_tids($data['modules'])) {
+    foreach ($modules as $tid) {
+      $instance->field_modules[LANGUAGE_NONE][] = array('tid' => $tid);
+    }
+  }
+
+  $instance->field_metrics[LANGUAGE_NONE] = array();
+  foreach ($data['metrics'] as $key => $value) {
+    $instance->field_metrics[LANGUAGE_NONE][] = array(
+      'first' => $key,
+      'second' => $value,
+    );
+  }
+
+  $instance->revision = TRUE;
+  node_save($instance);
+
+  return url('node/' . $instance->nid, array('absolute' => TRUE));
+}
