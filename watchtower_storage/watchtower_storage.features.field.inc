@@ -266,7 +266,7 @@ function watchtower_storage_field_default_fields() {
           'maxlength' => '64',
           'precision' => '10',
           'scale' => '2',
-          'size' => 'normal',
+          'size' => 'big',
           'type' => 'int',
         ),
       ),

@@ -1,6 +1,5 @@
 <?php
 
-watchdog('dw_client', 'dw_metric');
 /**
  * @file
  * Defines metrics calculations and their algorithms.

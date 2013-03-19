@@ -25,7 +25,7 @@ function dw_client_settings_form($form, $form_state) {
       'visible' => array(
         ':input[name="watchtower_reporting"]' => array('checked' => TRUE),
       ),
-    )
+    ),
   );
   if ($instance_url = variable_get('watchtower_instance_info_url', FALSE)) {
     $link = l($instance_url, $instance_url, array('external' => TRUE));
