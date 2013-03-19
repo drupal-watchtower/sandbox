@@ -34,7 +34,7 @@ function dw_server_xmlrpc() {
 function dw_server_process_report($data) {
   module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
 
-  $instance = _dw_server_get_instance($data['watchtower_key'], $_SERVER['REMOTE_ADDR'], $data['drupal_root']);
+  $instance = _dw_server_get_instance($data['watchtower_key'], ip_address(), $data['drupal_root']);
 
   ksort($data['modules']);
 
