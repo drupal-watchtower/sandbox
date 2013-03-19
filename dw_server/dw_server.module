@@ -6,13 +6,12 @@
 function dw_server_menu() {
   $items = array();
   $items['admin/config/system/watchtower_server'] = array(
-    'title' => 'Drupal Watchtower settings',
+    'title' => 'Drupal Watchtower Server settings',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('dw_server_settings_form'),
     'access arguments' => array('administer site configuration'),
     'file' => 'dw_server.admin.inc',
   );
-
   return $items;
 }
 

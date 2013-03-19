@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Module settings UI.
+ */
+
+/**
+ * Return form for Drupal Watchtower Client settings.
+ */
 function dw_client_settings_form($form, $form_state) {
   $form['client'] = array(
     '#type' => 'fieldset',
@@ -35,16 +43,19 @@ function dw_client_settings_form($form, $form_state) {
     '#description' => t('Enter address of XML-RPC interface, for example: <i>%server</i>', array('%server' => 'http://example.com/xmlrpc.php')),
   );
 
+  $form['client']['settings']['watchtower_report_threshold'] = array(
+    '#type' => 'select',
+    '#title' => t('Send report every'),
+    '#options' => drupal_map_assoc(array(3600, 10800, 21600, 43200, 86400, 604800), 'format_interval'),
+    '#default_value' => variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD),
+    '#description' => t('Watchtower client will interact with watchtower server every time when modules become enabled or disabled.'),
+  );
+
   $form['client']['settings']['watchtower_on_modules_events'] = array(
     '#type' => 'checkbox',
     '#title' => t('Send report on module enable or disable events'),
     '#default_value' => variable_get('watchtower_on_modules_events', FALSE),
     '#description' => t('Watchtower client will interact with watchtower server every time when modules become enabled or disabled.'),
-  );
-
-  $form['server'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Server configuration'),
   );
 
   return system_settings_form($form);

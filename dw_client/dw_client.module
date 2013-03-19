@@ -1,46 +1,38 @@
 <?php
 
+define('WATCHTOWER_DEFAULT_REPORT_THRESHOLD', 0);
+//define('WATCHTOWER_DEFAULT_REPORT_THRESHOLD', 10800);
+
 /**
  * Implements hook_menu().
  */
 function dw_client_menu() {
   $items = array();
   $items['admin/config/system/watchtower_client'] = array(
-    'title' => 'Drupal Watchtower settings',
+    'title' => 'Drupal Watchtower Client settings',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('dw_client_settings_form'),
     'access arguments' => array('administer site configuration'),
     'file' => 'dw_client.admin.inc',
   );
-
   return $items;
+}
+
+/**
+ * Implements hook_hook_info().
+ */
+function dw_client_hook_info() {
+  $hooks['dw_metric'] = array(
+    'group' => 'metric',
+  );
+  return $hooks;
 }
 
 /**
  * Implements hook_cron().
  */
 function dw_client_cron() {
-  if ($watchtower = variable_get('watchtower_server', FALSE)) {
-    module_load_include('inc', 'dw_client', 'dw_client.api');
-    $modules = dw_client_loaded_modules();
-
-    $instance_report = array(
-      'watchtower_key' => md5(drupal_get_private_key()),
-      'drupal_root' => DRUPAL_ROOT,
-      'modules' => $modules,
-      'metrics' => module_invoke_all('dw_metric'),
-    );
-
-    $result = xmlrpc($watchtower, array(
-      'drupal_watchtower.report' => array($instance_report),
-    ));
-
-    if (!$result) {
-      watchdog('dw_client', xmlrpc_error_msg(), array(), WATCHDOG_ERROR);
-    }
-
-    variable_set('watchtower_instance_info_url', $result);
-  }
+  _dw_client_report();
 }
 
 /**
@@ -48,7 +40,7 @@ function dw_client_cron() {
  */
 function dw_client_modules_enabled($modules) {
   if (variable_get('watchtower_on_modules_events', FALSE)) {
-    dw_client_cron();
+    _dw_client_report(TRUE);
   }
 }
 
@@ -57,21 +49,74 @@ function dw_client_modules_enabled($modules) {
  */
 function dw_client_modules_disabled($modules) {
   if (variable_get('watchtower_on_modules_events', FALSE)) {
-    dw_client_cron();
+    _dw_client_report(TRUE);
   }
 }
 
 /**
- * Implements hook_dw_metric().
+ * Sends state report on watchtower server.
+ *
+ * @param bool $force
  */
-function dw_client_dw_metric() {
-  module_load_include('inc', 'dw_client', 'dw_client.metric');
-  $metrics = array(
-    'current_time' => time(),
-    'php_memory_limit' => _return_bytes(ini_get('memory_limit')),
-    'greatest_user_id' => dw_client_greatest_user_id(),
-    'greatest_watchdog_id' => dw_client_greatest_watchdog_id(),
-  );
+function _dw_client_report($force = FALSE) {
+  if ($watchtower = variable_get('watchtower_server', FALSE)) {
+    if ($force || (time() - variable_get('watchtower_last_report', 0) >= variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD))) {
+      $instance_report = array(
+        'watchtower_key' => md5(drupal_get_private_key()),
+        'drupal_root' => DRUPAL_ROOT,
+        'modules' => dw_client_loaded_modules(),
+        'metrics' => module_invoke_all('dw_metric'),
+      );
 
-  return $metrics;
+      $result = xmlrpc($watchtower, array(
+        'drupal_watchtower.report' => array($instance_report),
+      ));
+
+      if (!$result) {
+        watchdog('dw_client', xmlrpc_error_msg(), array(), WATCHDOG_ERROR);
+      }
+      else {
+        variable_set('watchtower_last_report', time());
+        variable_set('watchtower_instance_info_url', $result);
+      }
+    }
+  }
+}
+
+/**
+ * Collects data about enabled modules.
+ *
+ * @return array
+ */
+function dw_client_loaded_modules() {
+  // Get current list of modules.
+  $modules = system_rebuild_module_data();
+
+  // Remove hidden, disabled and core modules from display list.
+  foreach ($modules as $filename => $module) {
+    if (!empty($module->info['hidden']) || !$module->status || $module->info['package'] == 'Core') {
+      unset($modules[$filename]);
+    }
+  }
+
+  // Reformat modules list.
+  array_walk($modules, 'dw_client_modules_array_format');
+
+  return $modules;
+}
+
+/**
+ * Formats modules array.
+ *
+ * @param $item
+ * @param $key
+ */
+function dw_client_modules_array_format(&$item, $key) {
+  $item = (object) array(
+    'name' => $item->info['name'],
+    'machine_name' => $key,
+    'description' => $item->info['description'],
+    'package' => $item->info['package'],
+    'version' => $item->info['version'],
+  );
 }

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Module settings UI.
+ */
+
+/**
+ * Return form for Drupal Watchtower Client settings.
+ */
 function dw_server_settings_form($form, $form_state) {
 //  $form['client'] = array(
 //    '#type' => 'fieldset',
