@@ -44,7 +44,7 @@ function dw_server_process_report($report_data) {
     'drupal_root' => '',
     'modules' => array(),
     'metrics' => array(),
-    'pacthes' => array(),
+    'patches' => array(),
   );
   $data = array_merge($default, $report_data);
 
