@@ -1,1 +1,16 @@
 <?php
+
+/**
+ * @file
+ * Contains install and update functions for Drupal Watchtower client.
+ */
+
+/**
+ * Implement hook_install().
+ */
+function dw_client_install() {
+  $t = get_t();
+  drupal_set_message($t("Drupal Watchtower client settings are available under !link",
+    array('!link' => l($t('Administer > Site configuration > System > Drupal Watchtower Client settings'),  'admin/config/system/watchtower_client'))
+  ));
+}

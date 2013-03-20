@@ -43,14 +43,14 @@ function dw_client_settings_form($form, $form_state) {
     '#description' => t('Enter address of XML-RPC interface, for example: <i>%server</i>', array('%server' => 'http://example.com/xmlrpc.php')),
   );
 
+  $intervals = array(3600, 10800, 21600, 43200, 86400, 604800);
   $form['client']['settings']['watchtower_report_threshold'] = array(
     '#type' => 'select',
     '#title' => t('Send report every'),
-    '#options' => drupal_map_assoc(array(3600, 10800, 21600, 43200, 86400, 604800), 'format_interval'),
+    '#options' => drupal_map_assoc($intervals, 'format_interval'),
     '#default_value' => variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD),
-    '#description' => t('Watchtower client will interact with watchtower server every time when modules become enabled or disabled.'),
+    '#description' => t('Watchtower client will interact with watchtower server when cron executed so frequent as you set.'),
   );
-
   $form['client']['settings']['watchtower_on_modules_events'] = array(
     '#type' => 'checkbox',
     '#title' => t('Send report on module enable or disable events'),

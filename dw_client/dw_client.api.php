@@ -1,9 +1,20 @@
 <?php
 
 /**
+ * @file
+ * Hooks provided by the Drupal Watchtower client module.
+ */
+
+/**
+ * @addtogroup hooks
+ * @{
+ */
+
+/**
  * Collects website metrics to report.
  *
  * @return array
+ * An array of metric values, keyed by the metric name.
  */
 function hook_dw_metric() {
   $metrics = array(
@@ -12,3 +23,7 @@ function hook_dw_metric() {
   );
   return $metrics;
 }
+
+/**
+ * @} End of "addtogroup hooks".
+ */

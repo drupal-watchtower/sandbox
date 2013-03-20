@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ *   Base Drupal Watchtower server module.
+ */
+
+/**
  * Implements hook_menu().
  */
 function dw_server_menu() {
@@ -31,13 +36,22 @@ function dw_server_xmlrpc() {
  *
  * @return string
  */
-function dw_server_process_report($data) {
+function dw_server_process_report($report_data) {
   module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
+
+  $default = array(
+    'watchtower_key' => '',
+    'drupal_root' => '',
+    'modules' => array(),
+    'metrics' => array(),
+    'pacthes' => array(),
+  );
+  $data = array_merge($default, $report_data);
 
   $instance = _dw_server_get_instance($data['watchtower_key'], ip_address(), $data['drupal_root']);
 
+  // Fills field_modules field.
   ksort($data['modules']);
-
   $instance->field_modules[LANGUAGE_NONE] = array();
   if ($modules = _dw_server_get_modules_tids($data['modules'])) {
     foreach ($modules as $tid) {
@@ -45,12 +59,23 @@ function dw_server_process_report($data) {
     }
   }
 
+  // Fills field_metrics field.
+  ksort($data['metrics']);
   $instance->field_metrics[LANGUAGE_NONE] = array();
   foreach ($data['metrics'] as $key => $value) {
     $instance->field_metrics[LANGUAGE_NONE][] = array(
       'first' => $key,
       'second' => $value,
     );
+  }
+
+  // Fills field_patches field.
+  ksort($data['patches']);
+  $instance->field_patches[LANGUAGE_NONE] = array();
+  if ($patches = _dw_server_get_patches_nids($data['patches'])) {
+    foreach ($patches as $nid) {
+      $instance->field_patches[LANGUAGE_NONE][] = array('target_id' => $nid);
+    }
   }
 
   $instance->revision = TRUE;

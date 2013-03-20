@@ -7,15 +7,19 @@ define('WATCHTOWER_MODULES_VID', taxonomy_vocabulary_machine_name_load(WATCHTOWE
 define('WATCHTOWER_PACKAGES_VID', taxonomy_vocabulary_machine_name_load(WATCHTOWER_PACKAGES_VOCABULARY)->vid);
 
 /**
- * Returns instance's node and creates one if need
+ * Returns instance's node or creates one if need.
  *
- * @param $watchtower_key
- * @param $server_ip
- * @param $drupal_root
+ * @param string $watchtower_key
+ *   String identifying drupal instance.
+ * @param string $server_ip
+ *   Watchtower client ip address.
+ * @param string $drupal_site_root
+ *   Watchtower Client drupal instance site directory.
  *
- * @return bool|mixed|null
+ * @return Object
+ *   Corresponing node object.
  */
-function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_root) {
+function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root) {
   // Lookup for existing instance's node
   $query = new EntityFieldQuery();
   $results = $query
@@ -23,7 +27,7 @@ function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_root) {
     ->entityCondition('bundle', 'drupal_instance')
     ->fieldCondition('field_watchtower_key', 'value', $watchtower_key)
     ->fieldCondition('field_server_ip', 'value', $server_ip)
-    ->fieldCondition('field_drupal_root', 'value', $drupal_root)
+    ->fieldCondition('field_drupal_root', 'value', $drupal_site_root)
     ->execute();
 
   if (!empty($results['node'])) {
@@ -33,11 +37,11 @@ function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_root) {
     $node = NULL;
     $node->is_new = TRUE;
     $node->type = 'drupal_instance';
-    $node->title = $server_ip . '/' . $drupal_root;
+    $node->title = $server_ip . '/' . $drupal_site_root;
     $node->language = LANGUAGE_NONE;
     $node->field_watchtower_key[LANGUAGE_NONE][] = array('value' => $watchtower_key);
     $node->field_server_ip[LANGUAGE_NONE][] = array('value' => $server_ip);
-    $node->field_drupal_root[LANGUAGE_NONE][] = array('value' => $drupal_root);
+    $node->field_drupal_root[LANGUAGE_NONE][] = array('value' => $drupal_site_root);
     node_save($node);
   }
 
@@ -84,4 +88,50 @@ function _dw_server_get_modules_tids($modules) {
   }
 
   return $modules_tids;
+}
+
+/**
+ * Retrieve patches nids by their description.
+ *
+ * @param array $patches
+ *
+ * @return array
+ */
+function _dw_server_get_patches_nids($patches) {
+  $patches_nids = array();
+
+  foreach ($patches as $patch_name => $module_name_and_version) {
+    // Lookup for existing instance's node
+    $query = new EntityFieldQuery();
+    $results = $query
+      ->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'patch')
+      ->propertyCondition('title', $patch_name)
+      ->execute();
+
+    if (!empty($results['node'])) {
+      $node = node_load(reset($results['node'])->nid);
+    }
+    else {
+      $node = NULL;
+      $node->is_new = TRUE;
+      $node->type = 'patch';
+      $node->title = $patch_name;
+      $node->language = LANGUAGE_NONE;
+      $node->field_priority[LANGUAGE_NONE][] = array('value' => 'normal');
+      $node->field_status[LANGUAGE_NONE][] = array('value' => 'new');
+      list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+      if ($module_term = reset(taxonomy_get_term_by_name($module_name, WATCHTOWER_MODULES_VOCABULARY))) {
+        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term->tid);
+      }
+      if ($module_term_version = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
+        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term_version->tid);
+      }
+      node_save($node);
+    }
+
+    $patches_nids[] = $node->nid;
+  }
+
+  return $patches_nids;
 }
