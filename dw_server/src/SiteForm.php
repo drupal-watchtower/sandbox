@@ -138,7 +138,7 @@ class SiteForm extends EntityForm {
       // $this->logger('dw_server')->notice('Added site %label.', $context);
     }
 
-    $this->entityManager->clearCachedFieldDefinitions();
+    // $this->entityManager->clearCachedFieldDefinitions();
     $form_state->setRedirectUrl($type->urlInfo('collection'));
   }
 

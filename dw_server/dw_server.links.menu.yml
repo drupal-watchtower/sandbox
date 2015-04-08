@@ -1,4 +1,5 @@
 entity.watchtower_site.collection:
   route_name: entity.watchtower_site.collection
   title: 'Watchtower sites'
+  description: 'Manage sites and their reports'
   parent: system.admin_config_system

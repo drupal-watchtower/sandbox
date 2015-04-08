@@ -29,3 +29,11 @@ entity.watchtower_site.delete_form:
     _title: 'Delete site'
   requirements:
     _entity_access: 'watchtower_site.delete'
+
+entity.watchtower_site.overview_form:
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/overview'
+  defaults:
+    _entity_form: 'watchtower_site.overview'
+    _title: 'Manage site'
+  requirements:
+    _entity_access: 'watchtower_site.view'

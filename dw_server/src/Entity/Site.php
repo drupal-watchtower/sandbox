@@ -8,6 +8,8 @@
 namespace Drupal\dw_server\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
+use Drupal\Core\Url;
+use Drupal\dw_server\SiteInterface;
 
 /**
  * Defines the watchtower site entity.
@@ -20,7 +22,8 @@ use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
  *     "form" = {
  *       "add" = "Drupal\dw_server\SiteForm",
  *       "edit" = "Drupal\dw_server\SiteForm",
- *       "delete" = "\Drupal\Core\Entity\EntityDeleteForm"
+ *       "delete" = "\Drupal\Core\Entity\EntityDeleteForm",
+ *       "overview" = "\Drupal\dw_server\Form\SiteOverviewForm",
  *     }
  *   },
  *   admin_permission = "administer watchtower",
@@ -34,11 +37,12 @@ use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
  *     "add-form" = "/admin/config/system/manage/{watchtower_site}/add",
  *     "delete-form" = "/admin/config/system/manage/{watchtower_site}/delete",
  *     "edit-form" = "/admin/config/system/manage/{watchtower_site}",
+ *     "overview-form" = "/admin/config/system/manage/{watchtower_site}/overview",
  *     "collection" = "/admin/config/system",
- *   }
+ *   },
  * )
  */
-class Site extends ConfigEntityBundleBase {
+class Site extends ConfigEntityBundleBase implements SiteInterface {
 
   /**
    * The site ID.
@@ -67,5 +71,19 @@ class Site extends ConfigEntityBundleBase {
    * @var string
    */
   protected $url;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDescription() {
+    return $this->get('description');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getSiteUrl() {
+    return Url::fromUri($this->get('url'));
+  }
 
 }
