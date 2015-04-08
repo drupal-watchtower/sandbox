@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - dw_server
+name: Modules
+vid: watchtower_module
+description: 'The dictionary about modules and versions of modules'
+hierarchy: 0
+weight: 0

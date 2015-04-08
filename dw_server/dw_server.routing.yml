@@ -1,0 +1,31 @@
+entity.watchtower_site.collection:
+  path: /admin/config/system/watchtower_server
+  defaults:
+    _entity_list: 'watchtower_site'
+    _title: 'Watchtower sites'
+  requirements:
+    _permission: 'administer watchtower'
+
+entity.watchtower_site.add_form:
+  path: '/admin/config/system/watchtower_server/add'
+  defaults:
+    _entity_form: 'watchtower_site.add'
+    _title: 'Add site'
+  requirements:
+    _entity_create_access: 'watchtower_site'
+
+entity.watchtower_site.edit_form:
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}'
+  defaults:
+    _entity_form: 'watchtower_site.edit'
+    _title: 'Edit site'
+  requirements:
+    _entity_access: 'watchtower_site.update'
+
+entity.watchtower_site.delete_form:
+  path: '/admin/config/system/watchtower_server/{watchtower_site}/delete'
+  defaults:
+    _entity_form: 'watchtower_site.delete'
+    _title: 'Delete site'
+  requirements:
+    _entity_access: 'watchtower_site.delete'

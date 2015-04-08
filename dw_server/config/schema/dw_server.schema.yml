@@ -1,0 +1,18 @@
+# Schema for the configuration files of the dw_server module.
+
+dw_server.site.*:
+  type: config_entity
+  label: 'Watchtower site'
+  mapping:
+    label:
+      type: label
+      label: 'Label'
+    id:
+      type: string
+      label: 'Machine name'
+    description:
+      type: label
+      label: 'Description'
+    url:
+      type: string
+      label: 'Url of the site'

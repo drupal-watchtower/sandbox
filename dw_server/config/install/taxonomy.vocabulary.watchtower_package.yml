@@ -1,0 +1,11 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - dw_server
+name: Package
+vid: watchtower_package
+description: 'Module package'
+hierarchy: 0
+weight: 0

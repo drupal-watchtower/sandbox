@@ -1,0 +1,5 @@
+entity.watchtower_site.add_form:
+  route_name: entity.watchtower_site.add_form
+  title: 'Add site'
+  appears_on:
+    - entity.watchtower_site.collection

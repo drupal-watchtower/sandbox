@@ -1,5 +1,80 @@
 <?php
 
+/**
+ * @file
+ * Remains of drupal 7 server xmlrpc endpoints.
+ */
+
+/**
+ * Implements hook_xmlrpc().
+ *
+ * @todo Get rid of https://www.drupal.org/node/1632592 use REST.
+ */
+function dw_server_xmlrpc() {
+  return array(
+    'drupal_watchtower.report' => 'dw_server_process_report',
+  );
+}
+
+/**
+ * Processes XML RPC request
+ *
+ * @param mixed $report_data
+ *   The data reported by client.
+ *
+ * @return string
+ */
+function dw_server_process_report($report_data) {
+  module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
+
+  $default = array(
+    'watchtower_key' => '',
+    'drupal_root' => '',
+    'modules' => array(),
+    'metrics' => array(),
+    'patches' => array(),
+  );
+  $data = array_merge($default, $report_data);
+
+  $instance = _dw_server_get_instance($data['watchtower_key'], \Drupal::request()->getClientIp(), $data['drupal_root']);
+
+  // Fills field_modules field.
+  ksort($data['modules']);
+  $instance->field_modules[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED] = array();
+  if ($modules = _dw_server_get_modules_tids($data['modules'])) {
+    foreach ($modules as $tid) {
+      $instance->field_modules[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('tid' => $tid);
+    }
+  }
+
+  // Fills field_metrics field.
+  ksort($data['metrics']);
+  $instance->field_metrics[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED] = array();
+  foreach ($data['metrics'] as $key => $value) {
+    $instance->field_metrics[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array(
+      'first' => $key,
+      'second' => $value,
+    );
+  }
+
+  // Fills field_patches field.
+  ksort($data['patches']);
+  $instance->field_patches[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED] = array();
+  if ($patches = _dw_server_get_patches_nids($data['patches'])) {
+    foreach ($patches as $nid) {
+      $instance->field_patches[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('target_id' => $nid);
+    }
+  }
+
+  $instance->revision = TRUE;
+  $instance->save();
+
+  // @FIXME
+// url() expects a route name or an external URI.
+// return url('node/' . $instance->nid, array('absolute' => TRUE));
+
+}
+
 define('WATCHTOWER_MODULES_VOCABULARY', 'modules');
 define('WATCHTOWER_PACKAGES_VOCABULARY', 'package');
 
@@ -31,18 +106,18 @@ function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root)
     ->execute();
 
   if (!empty($results['node'])) {
-    $node = node_load(reset($results['node'])->nid);
+    $node = \Drupal::entityManager()->getStorage('node')->load(reset($results['node'])->nid);
   }
   else {
     $node = NULL;
     $node->is_new = TRUE;
     $node->type = 'drupal_instance';
     $node->title = $server_ip . '/' . $drupal_site_root;
-    $node->language = LANGUAGE_NONE;
-    $node->field_watchtower_key[LANGUAGE_NONE][] = array('value' => $watchtower_key);
-    $node->field_server_ip[LANGUAGE_NONE][] = array('value' => $server_ip);
-    $node->field_drupal_root[LANGUAGE_NONE][] = array('value' => $drupal_site_root);
-    node_save($node);
+    $node->language = \Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED;
+    $node->field_watchtower_key[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('value' => $watchtower_key);
+    $node->field_server_ip[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('value' => $server_ip);
+    $node->field_drupal_root[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('value' => $drupal_site_root);
+    $node->save();
   }
 
   return $node;
@@ -64,15 +139,15 @@ function _dw_server_get_modules_tids($modules) {
       $package = NULL;
       $package->vid = WATCHTOWER_PACKAGES_VID;
       $package->name = $module['package'];
-      taxonomy_term_save($package);
+      $package->save();
     }
     if (!$module_term = reset(taxonomy_get_term_by_name($module['machine_name'], WATCHTOWER_MODULES_VOCABULARY))) {
       $module_term = NULL;
       $module_term->vid = WATCHTOWER_MODULES_VID;
       $module_term->name = $module['machine_name'];
       $module_term->description = $module['description'];
-      $module_term->field_package[LANGUAGE_NONE][] = array('tid' => $package->tid);
-      taxonomy_term_save($module_term);
+      $module_term->field_package[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('tid' => $package->tid);
+      $module_term->save();
     }
 
     $module_version_name = $module['machine_name'] . '-' . $module['version'];
@@ -81,7 +156,7 @@ function _dw_server_get_modules_tids($modules) {
       $module_version_term->vid = WATCHTOWER_MODULES_VID;
       $module_version_term->name = $module_version_name;
       $module_version_term->parent = $module_term->tid;
-      taxonomy_term_save($module_version_term);
+      $module_version_term->save();
     }
 
     $modules_tids[] = $module_version_term->tid;
@@ -110,24 +185,24 @@ function _dw_server_get_patches_nids($patches) {
       ->execute();
 
     if (!empty($results['node'])) {
-      $node = node_load(reset($results['node'])->nid);
+      $node = \Drupal::entityManager()->getStorage('node')->load(reset($results['node'])->nid);
     }
     else {
       $node = NULL;
       $node->is_new = TRUE;
       $node->type = 'patch';
       $node->title = $patch_name;
-      $node->language = LANGUAGE_NONE;
-      $node->field_priority[LANGUAGE_NONE][] = array('value' => 'normal');
-      $node->field_status[LANGUAGE_NONE][] = array('value' => 'new');
+      $node->language = \Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED;
+      $node->field_priority[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('value' => 'normal');
+      $node->field_status[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('value' => 'new');
       list($module_name, $module_version_name) = explode(':', $module_name_and_version);
       if ($module_term = reset(taxonomy_get_term_by_name($module_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term->tid);
+        $node->field_applicable_to[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('tid' => $module_term->tid);
       }
       if ($module_term_version = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term_version->tid);
+        $node->field_applicable_to[\Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED][] = array('tid' => $module_term_version->tid);
       }
-      node_save($node);
+      $node->save();
     }
 
     $patches_nids[] = $node->nid;

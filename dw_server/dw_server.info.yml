@@ -1,0 +1,7 @@
+name: 'Drupal Watchtower Server'
+description: 'Drupal Watchtower Server.'
+core: 8.x
+dependencies:
+  - taxonomy
+type: module
+configure: entity.watchtower_site.collection

@@ -5,81 +5,17 @@
  *   Base Drupal Watchtower server module.
  */
 
-/**
- * Implements hook_menu().
- */
-function dw_server_menu() {
-  $items = array();
-  $items['admin/config/system/watchtower_server'] = array(
-    'title' => 'Drupal Watchtower Server settings',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('dw_server_settings_form'),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'dw_server.admin.inc',
-  );
-  return $items;
-}
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
- * Implements hook_xmlrpc().
+ * Implements hook_help().
  */
-function dw_server_xmlrpc() {
-  return array(
-    'drupal_watchtower.report' => 'dw_server_process_report',
-  );
-}
-
-/**
- * Processes XML RPC request
- *
- * @param $data
- *
- * @return string
- */
-function dw_server_process_report($report_data) {
-  module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
-
-  $default = array(
-    'watchtower_key' => '',
-    'drupal_root' => '',
-    'modules' => array(),
-    'metrics' => array(),
-    'patches' => array(),
-  );
-  $data = array_merge($default, $report_data);
-
-  $instance = _dw_server_get_instance($data['watchtower_key'], ip_address(), $data['drupal_root']);
-
-  // Fills field_modules field.
-  ksort($data['modules']);
-  $instance->field_modules[LANGUAGE_NONE] = array();
-  if ($modules = _dw_server_get_modules_tids($data['modules'])) {
-    foreach ($modules as $tid) {
-      $instance->field_modules[LANGUAGE_NONE][] = array('tid' => $tid);
-    }
+function dw_server_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.action':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The Watchtower server module provides storage for site reports') . '</p>';
+      return $output;
   }
-
-  // Fills field_metrics field.
-  ksort($data['metrics']);
-  $instance->field_metrics[LANGUAGE_NONE] = array();
-  foreach ($data['metrics'] as $key => $value) {
-    $instance->field_metrics[LANGUAGE_NONE][] = array(
-      'first' => $key,
-      'second' => $value,
-    );
-  }
-
-  // Fills field_patches field.
-  ksort($data['patches']);
-  $instance->field_patches[LANGUAGE_NONE] = array();
-  if ($patches = _dw_server_get_patches_nids($data['patches'])) {
-    foreach ($patches as $nid) {
-      $instance->field_patches[LANGUAGE_NONE][] = array('target_id' => $nid);
-    }
-  }
-
-  $instance->revision = TRUE;
-  node_save($instance);
-
-  return url('node/' . $instance->nid, array('absolute' => TRUE));
 }
