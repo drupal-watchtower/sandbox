@@ -23,7 +23,7 @@ entity.watchtower_site.edit_form:
     _entity_access: 'watchtower_site.update'
 
 entity.watchtower_site.delete_form:
-  path: '/admin/config/system/watchtower_server/{watchtower_site}/delete'
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/delete'
   defaults:
     _entity_form: 'watchtower_site.delete'
     _title: 'Delete site'
@@ -37,3 +37,19 @@ entity.watchtower_site.overview_form:
     _title: 'Manage site'
   requirements:
     _entity_access: 'watchtower_site.view'
+
+entity.watchtower_site.enable:
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/enable'
+  defaults:
+    _entity_form: 'watchtower_site.enable'
+    entity_type: 'watchtower_site'
+  requirements:
+    _entity_access: 'watchtower_site.update'
+
+entity.watchtower_site.disable:
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/disable'
+  defaults:
+    _entity_form: 'watchtower_site.disable'
+    entity_type: 'watchtower_site'
+  requirements:
+    _entity_access: 'watchtower_site.update'

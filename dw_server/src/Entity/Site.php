@@ -24,6 +24,8 @@ use Drupal\dw_server\SiteInterface;
  *       "edit" = "Drupal\dw_server\SiteForm",
  *       "delete" = "\Drupal\Core\Entity\EntityDeleteForm",
  *       "overview" = "\Drupal\dw_server\Form\SiteOverviewForm",
+ *       "enable" = "\Drupal\dw_server\Form\SiteEnableForm",
+ *       "disable" = "\Drupal\dw_server\Form\SiteDisableForm",
  *     }
  *   },
  *   admin_permission = "administer watchtower",
@@ -32,13 +34,16 @@ use Drupal\dw_server\SiteInterface;
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label",
+ *     "status" = "status",
  *   },
  *   links = {
- *     "add-form" = "/admin/config/system/manage/{watchtower_site}/add",
- *     "delete-form" = "/admin/config/system/manage/{watchtower_site}/delete",
- *     "edit-form" = "/admin/config/system/manage/{watchtower_site}",
- *     "overview-form" = "/admin/config/system/manage/{watchtower_site}/overview",
- *     "collection" = "/admin/config/system",
+ *     "collection" = "/admin/config/system/watchtower_server",
+ *     "add-form" = "/admin/config/system/watchtower_server/add",
+ *     "edit-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}",
+ *     "overview-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/overview",
+ *     "disable" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/disable",
+ *     "enable" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/enable",
+ *     "delete-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/delete",
  *   },
  * )
  */
