@@ -10,11 +10,7 @@ namespace Drupal\dw_server\Form;
 use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityManagerInterface;
-use Drupal\Core\Form\FormBase;
-use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\dw_server\SiteInterface;
-use Drupal\taxonomy\VocabularyInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /*
@@ -90,6 +86,16 @@ class SiteOverviewForm extends EntityForm {
     $site
       ->setThirdPartySetting('dw_client', 'plugins', $form_state->getValue('plugins'))
       ->save();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function actions(array $form, FormStateInterface $form_state) {
+    // Do not show delete on overview.
+    $actions = parent::actions($form, $form_state);
+    $actions['delete']['#access'] = FALSE;
+    return $actions;
   }
 
 }
