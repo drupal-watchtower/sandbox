@@ -1,2 +1,5 @@
-administer watchtower:
-  title: 'Administer watchtower'
+administer watchtower sites:
+  title: 'Administer watchtower sites'
+
+administer watchtower reports:
+  title: 'Administer watchtower reports'

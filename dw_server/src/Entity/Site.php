@@ -28,7 +28,7 @@ use Drupal\dw_server\SiteInterface;
  *       "disable" = "\Drupal\dw_server\Form\SiteDisableForm",
  *     }
  *   },
- *   admin_permission = "administer watchtower",
+ *   admin_permission = "administer watchtower sites",
  *   config_prefix = "site",
  *   bundle_of = "watchtower_report",
  *   entity_keys = {
@@ -39,8 +39,8 @@ use Drupal\dw_server\SiteInterface;
  *   links = {
  *     "collection" = "/admin/config/system/watchtower_server",
  *     "add-form" = "/admin/config/system/watchtower_server/add",
- *     "edit-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}",
- *     "overview-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/overview",
+ *     "canonical" = "/admin/config/system/watchtower_server/manage/{watchtower_site}",
+ *     "edit-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/edit",
  *     "disable" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/disable",
  *     "enable" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/enable",
  *     "delete-form" = "/admin/config/system/watchtower_server/manage/{watchtower_site}/delete",

@@ -5,6 +5,7 @@
  *   Base Drupal Watchtower server module.
  */
 
+use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
@@ -17,5 +18,36 @@ function dw_server_help($route_name, RouteMatchInterface $route_match) {
       $output .= '<h3>' . t('About') . '</h3>';
       $output .= '<p>' . t('The Watchtower server module provides storage for site reports') . '</p>';
       return $output;
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function dw_server_theme() {
+  return [
+    'watchtower_report' => [
+      'render element' => 'elements',
+    ],
+  ];
+}
+
+/**
+ * Prepares variables for report templates.
+ *
+ * Default template: watchtower-report.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the entity.
+ *     Array keys: #watchtower_report.
+ */
+function template_preprocess_watchtower_report(&$variables) {
+  /** @var \Drupal\dw_server\ReportInterface $report */
+  $report = $variables['elements']['#watchtower_report'];
+
+  // Helpful $content variable for templates.
+  foreach (Element::children($variables['elements']) as $key) {
+    $variables['content'][$key] = $variables['elements'][$key];
   }
 }

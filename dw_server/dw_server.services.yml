@@ -1,0 +1,9 @@
+services:
+
+  dw_server.post_render_cache:
+    class: Drupal\dw_server\PostRenderCache
+    arguments: ['@entity.manager', '@current_user', '@plugin.manager.dw_server.report', '@module_handler', '@renderer']
+
+  plugin.manager.dw_server.report:
+    class: Drupal\dw_server\ReportManager
+    parent: default_plugin_manager

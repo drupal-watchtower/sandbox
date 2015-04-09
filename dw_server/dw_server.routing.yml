@@ -1,3 +1,4 @@
+# watchtower_site entity routes.
 entity.watchtower_site.collection:
   path: /admin/config/system/watchtower_server
   defaults:
@@ -14,8 +15,16 @@ entity.watchtower_site.add_form:
   requirements:
     _entity_create_access: 'watchtower_site'
 
-entity.watchtower_site.edit_form:
+entity.watchtower_site.canonical:
   path: '/admin/config/system/watchtower_server/manage/{watchtower_site}'
+  defaults:
+    _entity_form: 'watchtower_site.overview'
+    _title: 'Manage site'
+  requirements:
+    _entity_access: 'watchtower_site.view'
+
+entity.watchtower_site.edit_form:
+  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/edit'
   defaults:
     _entity_form: 'watchtower_site.edit'
     _title: 'Edit site'
@@ -29,14 +38,6 @@ entity.watchtower_site.delete_form:
     _title: 'Delete site'
   requirements:
     _entity_access: 'watchtower_site.delete'
-
-entity.watchtower_site.overview_form:
-  path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/overview'
-  defaults:
-    _entity_form: 'watchtower_site.overview'
-    _title: 'Manage site'
-  requirements:
-    _entity_access: 'watchtower_site.view'
 
 entity.watchtower_site.enable:
   path: '/admin/config/system/watchtower_server/manage/{watchtower_site}/enable'
@@ -53,3 +54,44 @@ entity.watchtower_site.disable:
     entity_type: 'watchtower_site'
   requirements:
     _entity_access: 'watchtower_site.update'
+
+# watchtower_report entity routes.
+entity.watchtower_report.canonical:
+  path: '/watchtower/report/{watchtower_report}'
+  defaults:
+    _entity_view: 'watchtower_report.full'
+    _title: 'Site report'
+  requirements:
+    _entity_access: 'watchtower_report.view'
+
+entity.watchtower_report.collection:
+  path: /watchtower/reports
+  defaults:
+    _entity_list: 'watchtower_report'
+    _title: 'Watchtower reports'
+  requirements:
+    _permission: 'administer watchtower reports'
+
+entity.watchtower_report.add_form:
+  path: '/watchtower/add/{watchtower_site}'
+  defaults:
+    _controller: '\Drupal\dw_server\Controller\ReportController::addForm'
+    _title: 'Add report'
+  requirements:
+    _entity_create_access: 'watchtower_report:{watchtower_site}'
+
+entity.watchtower_report.edit_form:
+  path: '/watchtower/manage/{watchtower_report}/edit'
+  defaults:
+    _entity_form: 'watchtower_report.edit'
+    _title: 'Edit report'
+  requirements:
+    _entity_access: 'watchtower_report.update'
+
+entity.watchtower_report.delete_form:
+  path: '/watchtower/manage/{watchtower_report}/delete'
+  defaults:
+    _entity_form: 'watchtower_report.delete'
+    _title: 'Delete report'
+  requirements:
+    _entity_access: 'watchtower_report.delete'

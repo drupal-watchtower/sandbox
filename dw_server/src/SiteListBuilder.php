@@ -10,6 +10,7 @@ namespace Drupal\dw_server;
 use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Url;
 
 /**
  * Defines a class to build a listing of site entities.
@@ -37,7 +38,7 @@ class SiteListBuilder extends ConfigEntityListBuilder {
     $row['label'] = ['data' => [
       '#type' => 'link',
       '#title' => $entity->label(),
-      '#url' => $entity->urlInfo('overview-form'),
+      '#url' => $entity->urlInfo(),
     ]];
     $row['url'] = SafeMarkup::checkPlain($entity->get('url'));
     return $row + parent::buildRow($entity);
@@ -51,7 +52,14 @@ class SiteListBuilder extends ConfigEntityListBuilder {
     $operations['overview'] = [
       'title' => $this->t('Overview'),
       'weight' => -100,
-      'url' => $entity->urlInfo('overview-form'),
+      'url' => $entity->urlInfo(),
+    ];
+    $operations['add'] = [
+      'title' => $this->t('Add report (testing)'),
+      'weight' => -50,
+      'url' => Url::fromRoute('entity.watchtower_report.add_form', [
+        'watchtower_site' =>$entity->id(),
+      ]),
     ];
     return $operations;
   }
