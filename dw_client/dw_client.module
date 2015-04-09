@@ -64,7 +64,13 @@ function dw_client_modules_disabled($modules) {
 /**
  * Sends state report to watchtower server.
  *
+ * @todo Refactor for better integration with drush.
+ *
  * @param bool $force
+ *   Do not check the last report time.
+ *
+ * @return bool
+ *   Is result successful.
  */
 function _dw_client_report($force = FALSE) {
   if ($watchtower = variable_get('watchtower_server', FALSE)) {
@@ -90,6 +96,7 @@ function _dw_client_report($force = FALSE) {
       }
     }
   }
+  return !empty($result);
 }
 
 /**
