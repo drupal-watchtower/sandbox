@@ -15,4 +15,12 @@ use Drupal\Component\Plugin\PluginManagerInterface;
  */
 interface ReportManagerInterface extends PluginManagerInterface, CachedDiscoveryInterface {
 
+  /**
+   * Returns a list of plugins usable for options display.
+   *
+   * @return array
+   *   Array keyed by plugin ID with title value.
+   */
+  public function getPluginsAsOptions();
+
 }

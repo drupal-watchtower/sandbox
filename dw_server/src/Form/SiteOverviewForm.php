@@ -11,6 +11,7 @@ use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\dw_server\ReportManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /*
@@ -26,13 +27,23 @@ class SiteOverviewForm extends EntityForm {
   protected $entityManager;
 
   /**
+   * The report manager.
+   *
+   * @var \Drupal\dw_server\ReportManagerInterface
+   */
+  protected $reportManager;
+
+  /**
    * Constructs the NodeTypeForm object.
    *
    * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
    *   The entity manager
+   * @param \Drupal\dw_server\ReportManagerInterface $report_manager
+   *   The report manager.
    */
-  public function __construct(EntityManagerInterface $entity_manager) {
+  public function __construct(EntityManagerInterface $entity_manager, ReportManagerInterface $report_manager) {
     $this->entityManager = $entity_manager;
+    $this->reportManager = $report_manager;
   }
 
   /**
@@ -40,7 +51,8 @@ class SiteOverviewForm extends EntityForm {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity.manager')
+      $container->get('entity.manager'),
+      $container->get('plugin.manager.dw_server.report')
     );
   }
 
@@ -62,15 +74,9 @@ class SiteOverviewForm extends EntityForm {
 
     // Configure enabled plugins.
     $enabled_plugins = $site->getThirdPartySetting('dw_client', 'plugins', []);
-    // @todo Get from manager.
-    $plugins = [
-      'modules' => 'Modules information plugin',
-      'entity' => 'Site new/edited entity statistics',
-      'system' => 'Site performance statistics',
-    ];
     $form['plugins'] = [
       '#type' => 'checkboxes',
-      '#options' => $plugins,
+      '#options' => $this->reportManager->getPluginsAsOptions(),
       '#title' => $this->t('Enabled reports'),
       '#default_value' => $enabled_plugins,
     ];

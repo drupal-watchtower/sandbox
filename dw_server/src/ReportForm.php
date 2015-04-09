@@ -57,12 +57,8 @@ class ReportForm extends ContentEntityForm {
     if ($this->operation == 'edit') {
       $form['#title'] = $this->t('Edit report %label', array('%label' => $report->label()));
     }
-    $plugins = $this->reportManager->getDefinitions();
+    $options = $this->reportManager->getPluginsAsOptions();
     // @todo Limit plugins per site.
-    $options = [];
-    foreach ($plugins as $id => $plugin) {
-      $options[$id] = $plugin['title'];
-    }
 
     $form['plugin'] = [
       '#title' => $this->t('Select plugin'),
@@ -101,6 +97,7 @@ class ReportForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state) {
+    $this->entity->set('plugin_id', $form_state->getValue('plugin'));
     $status = parent::save($form, $form_state);
 
     $t_args = array('%label' => $this->entity->label());

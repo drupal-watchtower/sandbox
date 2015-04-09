@@ -26,4 +26,16 @@ class ReportManager extends DefaultPluginManager implements ReportManagerInterfa
     $this->setCacheBackend($cache_backend, 'dw_server_plugins');
     $this->alterInfo('dw_server_plugins');
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPluginsAsOptions() {
+    $options = [];
+    foreach ($this->getDefinitions() as $id => $plugin) {
+      $options[$id] = $plugin['title'];
+    }
+    return $options;
+  }
+
 }
