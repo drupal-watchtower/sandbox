@@ -38,7 +38,7 @@ class SiteListBuilder extends ConfigEntityListBuilder {
     $row['label'] = ['data' => [
       '#type' => 'link',
       '#title' => $entity->label(),
-      '#url' => $entity->urlInfo(),
+      '#url' => $entity->urlInfo('canonical'),
     ]];
     $row['url'] = SafeMarkup::checkPlain($entity->get('url'));
     return $row + parent::buildRow($entity);
@@ -52,7 +52,7 @@ class SiteListBuilder extends ConfigEntityListBuilder {
     $operations['overview'] = [
       'title' => $this->t('Overview'),
       'weight' => -100,
-      'url' => $entity->urlInfo(),
+      'url' => $entity->urlInfo('canonical'),
     ];
     $operations['add'] = [
       'title' => $this->t('Add report (testing)'),
