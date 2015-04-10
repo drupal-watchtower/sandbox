@@ -6,11 +6,49 @@
  */
 
 /**
- * Implement hook_install().
+ * Implements hook_uninstall().
  */
-function dw_client_install() {
-  $t = get_t();
-  drupal_set_message($t("Drupal Watchtower client settings are available under !link",
-    array('!link' => l($t('Administer > Site configuration > System > Drupal Watchtower Client settings'),  'admin/config/system/watchtower_client'))
-  ));
+function dw_client_uninstall() {
+  // Clean-up module variables.
+
+  \Drupal::state()->deleteMultiple([
+    'dw_client.report_last',
+    'dw_client.report_url',
+  ]);
+}
+
+/**
+ * Implements hook_requirements().
+ *
+ * For the Status Report, return information about schedule and url.
+ */
+function dw_client_requirements($phase) {
+  $phase = 'runtime';
+  if ($phase == 'runtime') {
+    $requirements = [
+      'title' => t('Watchtower status'),
+      'value' => t('No schedule enabled'),
+      'severity' => REQUIREMENT_INFO,
+    ];
+    if (\Drupal::config('dw_client.settings')->get('schedule')) {
+      if ($url = \Drupal::state()->get('dw_client.report_url', '')) {
+        // Show last response server URL.
+        $requirements['severity'] = REQUIREMENT_OK;
+        $requirements['value'] = t('Report url @link', ['@link' => $url]);
+      }
+      else {
+        $requirements['severity'] = REQUIREMENT_ERROR;
+        $requirements['value'] = t('Failed to send report');
+      }
+      if ($last = \Drupal::state()->get('dw_client.report_last', 0)) {
+        // If there was a attempts to send reports.
+        $requirements['description'] =  t('Last run at @date', ['@date' => format_date($last)]);
+      }
+      else {
+        $requirements['description'] = t('Run cron to send report');
+      }
+    }
+  }
+
+  return isset($requirements) ? ['watchtower_status' => $requirements] : [];
 }
