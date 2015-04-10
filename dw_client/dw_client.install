@@ -10,11 +10,9 @@
  */
 function dw_client_uninstall() {
   // Clean-up module variables.
-
-  \Drupal::state()->deleteMultiple([
-    'dw_client.report_last',
-    'dw_client.report_url',
-  ]);
+  $vars = db_delete('variable');
+  $vars = $vars->condition('name', 'watchtower_%', 'LIKE');
+  $vars->execute();
 }
 
 /**
@@ -25,24 +23,24 @@ function dw_client_uninstall() {
 function dw_client_requirements($phase) {
   $phase = 'runtime';
   if ($phase == 'runtime') {
-    $requirements = [
+    $requirements = array(
       'title' => t('Watchtower status'),
       'value' => t('No schedule enabled'),
       'severity' => REQUIREMENT_INFO,
-    ];
-    if (\Drupal::config('dw_client.settings')->get('schedule')) {
-      if ($url = \Drupal::state()->get('dw_client.report_url', '')) {
+    );
+    if (variable_get('watchtower_reporting', FALSE)) {
+      if ($url = variable_get('watchtower_instance_info_url', '')) {
         // Show last response server URL.
         $requirements['severity'] = REQUIREMENT_OK;
-        $requirements['value'] = t('Report url @link', ['@link' => $url]);
+        $requirements['value'] = t('Report url @link', array('@link' => $url));
       }
       else {
         $requirements['severity'] = REQUIREMENT_ERROR;
         $requirements['value'] = t('Failed to send report');
       }
-      if ($last = \Drupal::state()->get('dw_client.report_last', 0)) {
+      if ($last = variable_get('watchtower_last_report', 0)) {
         // If there was a attempts to send reports.
-        $requirements['description'] =  t('Last run at @date', ['@date' => format_date($last)]);
+        $requirements['description'] =  t('Last run at @date', array('@date' => format_date($last)));
       }
       else {
         $requirements['description'] = t('Run cron to send report');
@@ -50,5 +48,5 @@ function dw_client_requirements($phase) {
     }
   }
 
-  return isset($requirements) ? ['watchtower_status' => $requirements] : [];
+  return isset($requirements) ? array('watchtower_status' => $requirements) : array();
 }
