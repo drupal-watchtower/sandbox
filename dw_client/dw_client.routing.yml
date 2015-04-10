@@ -1,0 +1,7 @@
+dw_client.settings_form:
+  path: /admin/config/system/watchtower_client
+  defaults:
+    _title: 'Watchtower client settings'
+    _form: \Drupal\dw_client\Form\DwClientSettingsForm
+  requirements:
+    _permission: 'administer site configuration'

@@ -6,24 +6,33 @@
  *   functionality.
  */
 
-/**
- * Default minimal period of time in seconds between reports executed by cron.
- */
-define('WATCHTOWER_DEFAULT_REPORT_THRESHOLD', 10800);
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
- * Implements hook_menu().
+ * Implements hook_help().
  */
-function dw_client_menu() {
-  $items = array();
-  $items['admin/config/system/watchtower_client'] = array(
-    'title' => 'Drupal Watchtower Client settings',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('dw_client_settings_form'),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'dw_client.admin.inc',
-  );
-  return $items;
+function dw_client_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.dw_client':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The module allows sending reports to Watchtower server.') . '</p>';
+      $output .= '<h3>' . t('Uses') . '</h3>';
+      $output .= '<dl>';
+      $output .= '<dt>' . t('Configure settings') . '</dt>';
+      $output .= '<dd>' . t('Administrators can configure automatic report send at <a href="!link">Watchtower administration page</a>.', [
+        '!link' => \Drupal::url('dw_client.settings_form'),
+        ]) . '</dd>';
+      $output .= '<dt>' . t('Configuring cron') . '</dt>';
+      $output .= '<dd>' . t('A working <a href="!cron">cron maintenance task</a> is required to send reports automatically.', [
+          '!cron' => \Drupal::url('system.cron_settings'),
+        ]) . '</dd>';
+      $output .= '</dl>';
+      return $output;
+
+    case 'dw_client.settings_form':
+      return t('Configure server and schedule time to send reports');
+  }
 }
 
 /**
@@ -40,56 +49,79 @@ function dw_client_hook_info() {
  * Implements hook_cron().
  */
 function dw_client_cron() {
-  _dw_client_report();
-}
-
-/**
- * Implements hook_modules_enabled().
- */
-function dw_client_modules_enabled($modules) {
-  if (variable_get('watchtower_on_modules_events', FALSE)) {
-    _dw_client_report(TRUE);
+  $config = \Drupal::config('dw_client.settings');
+  if ($config->get('schedule') && $config->get('server')) {
+    _dw_client_report();
   }
 }
 
 /**
- * Implements hook_modules_disabled().
+ * Implements hook_modules_installed().
  */
-function dw_client_modules_disabled($modules) {
-  if (variable_get('watchtower_on_modules_events', FALSE)) {
-    _dw_client_report(TRUE);
+function dw_client_modules_installed($modules) {
+  if (\Drupal::state()->get('dw_client.report_url')) {
+    $events = \Drupal::config('dw_client.settings')->get('events');
+    if (!empty($events['modules'])) {
+      _dw_client_report(TRUE);
+    }
+  }
+}
+
+/**
+ * Implements hook_modules_uninstalled().
+ */
+function dw_client_modules_uninstalled($modules) {
+  if (\Drupal::state()->get('dw_client.report_url')) {
+    $events = \Drupal::config('dw_client.settings')->get('events');
+    if (!empty($events['modules'])) {
+      _dw_client_report(TRUE);
+    }
   }
 }
 
 /**
  * Sends state report to watchtower server.
  *
+ * @todo Refactor for better integration with drush.
+ *
  * @param bool $force
+ *   Do not check the last report time.
+ *
+ * @return bool
+ *   Is result successful.
  */
 function _dw_client_report($force = FALSE) {
-  if ($watchtower = variable_get('watchtower_server', FALSE)) {
-    if ($force || (time() - variable_get('watchtower_last_report', 0) >= variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD))) {
-      $instance_report = array(
-        'watchtower_key' => md5(drupal_get_private_key()),
+  $time = time();
+  $config = \Drupal::config('dw_client.settings');
+  $last_run = \Drupal::state()->get('dw_client.report_last', 0);
+  if ($watchtower = $config->get('server')) {
+    if ($force || ($time - $last_run >= $config->get('report_threshold'))) {
+      $private_key = Drupal::service('private_key')->get();
+      $instance_report = [
+        // @todo Use better hash.
+        'watchtower_key' => md5($private_key),
+        // @todo Revisit deprecated.
         'drupal_root' => DRUPAL_ROOT . '/' . conf_path(),
         'modules' => dw_client_loaded_modules(),
         'patches' => dw_client_patches(),
-        'metrics' => module_invoke_all('dw_metric'),
-      );
+        'metrics' => \Drupal::moduleHandler()->invokeAll('dw_metric'),
+      ];
 
       $result = xmlrpc($watchtower, array(
         'drupal_watchtower.report' => array($instance_report),
       ));
 
-      if (!$result) {
-        watchdog('dw_client', xmlrpc_error_msg(), array(), WATCHDOG_ERROR);
+      // Any execution should set it's mark.
+      \Drupal::state()->set('dw_client.report_last',$time);
+      if ($result) {
+        \Drupal::state()->set('dw_client.report_url',$result);
       }
       else {
-        variable_set('watchtower_last_report', time());
-        variable_set('watchtower_instance_info_url', $result);
+        \Drupal::logger('dw_client')->error(xmlrpc_error_msg());
       }
     }
   }
+  return !empty($result);
 }
 
 /**
@@ -109,19 +141,22 @@ function dw_client_loaded_modules() {
 /**
  * Retrieves list of enabled not hidden non-core modules.
  *
- * @return mixed
+ * @return \Drupal\Core\Extension\Extension[]
+ *   Array of enabled modules without core ones.
  */
 function dw_client_get_enabled_not_hidden_non_core_modules() {
-  $modules = &drupal_static(__FUNCTION__, '');
+  $modules = &drupal_static(__FUNCTION__, []);
 
   if (!$modules) {
     // Get current list of modules.
+    // @todo $modules = \Drupal::moduleHandler()->getModuleList();
     $modules = system_rebuild_module_data();
 
     // Remove hidden, disabled and core modules from display list.
-    foreach ($modules as $filename => $module) {
-      if (!empty($module->info['hidden']) || !$module->status || $module->info['package'] == 'Core') {
-        unset($modules[$filename]);
+    foreach ($modules as $name => $module) {
+      if (!$module->status || $module->origin === 'core') {
+        // Filter out core modules.
+        unset($modules[$name]);
       }
     }
   }
@@ -133,13 +168,15 @@ function dw_client_get_enabled_not_hidden_non_core_modules() {
  * Helper function to use with array_walk.
  * Formats modules array.
  *
- * @param $item
- * @param $key
+ * @param \Drupal\Core\Extension\Extension $item
+ *   The module extension to format
+ * @param string $name
+ *   The module machine name.
  */
-function dw_client_modules_array_format(&$item, $key) {
+function dw_client_modules_array_format(&$item, $name) {
   $item = (object) array(
     'name' => $item->info['name'],
-    'machine_name' => $key,
+    'machine_name' => $name,
     'description' => $item->info['description'],
     'package' => $item->info['package'],
     'version' => $item->info['version'],
@@ -167,7 +204,7 @@ function dw_client_patches() {
 /**
  * Retrieves patches for a list of modules grouped by module version name.
  *
- * @param array $modules
+ * @param \Drupal\Core\Extension\Extension[] $modules
  *   List of modules in format of system_rebuild_module_data() function.
  * @param bool $recursive
  *   Flag defining that patches should be searched recursively inside modules'
@@ -178,14 +215,14 @@ function dw_client_patches() {
 function dw_client_search_patches($modules, $recursive = FALSE) {
   $patches = array();
   foreach ($modules as $module_name => $module) {
-    $module_version_name = $module_name . '-' . $module->info['version'];
-    $module_path = dirname($module->filename);
+    $module_version_name = $module_name . ':' . $module->info['version'];
+    $module_path = $module->getPath();
     $module_patches = array();
     if ($recursive) {
-      // Recursive version - looks thru whole module directory structure
-      $directory = new RecursiveDirectoryIterator($module_path);
-      $flattened = new RecursiveIteratorIterator($directory);
-      $files = new RegexIterator($flattened, '/.*\.patch/i');
+      // Recursive version - looks through whole module directory structure
+      $directory = new \RecursiveDirectoryIterator($module_path);
+      $flattened = new \RecursiveIteratorIterator($directory);
+      $files = new \RegexIterator($flattened, '/.*\.patch/i');
       foreach ($files as $file) {
         $module_patches[] = $file->getPath();
       }
@@ -199,7 +236,7 @@ function dw_client_search_patches($modules, $recursive = FALSE) {
       foreach ($module_patches as &$patch_path) {
         $patch_path = basename($patch_path);
       }
-      $patches[$module_name . ':' . $module_version_name] = $module_patches;
+      $patches[$module_version_name] = $module_patches;
     }
   }
 

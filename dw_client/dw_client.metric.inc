@@ -9,13 +9,12 @@
  * Implements hook_dw_metric().
  */
 function dw_client_dw_metric() {
-  $metrics = array(
+  return [
     'current_time' => time(),
     'php_memory_limit' => _return_bytes(ini_get('memory_limit')),
     'greatest_user_id' => dw_client_greatest_user_id(),
     'greatest_watchdog_id' => dw_client_greatest_watchdog_id(),
-  );
-  return $metrics;
+  ];
 }
 
 /**
@@ -41,10 +40,22 @@ function _return_bytes($size_str) {
   }
 }
 
+/**
+ * Returns last user entity ID.
+ *
+ * @return int
+ *   Max user entity ID.
+ */
 function dw_client_greatest_user_id() {
   return db_query("SELECT MAX(uid) FROM {users}")->fetchField();
 }
 
+/**
+ * Returns last watchdog record ID.
+ *
+ * @return int
+ *   Max watchdog ID.
+ */
 function dw_client_greatest_watchdog_id() {
   return db_query("SELECT MAX(wid) FROM {watchdog}")->fetchField();
 }

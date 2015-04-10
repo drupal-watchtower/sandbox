@@ -1,0 +1,5 @@
+dw_client.settings_form:
+  route_name: dw_client.settings_form
+  title: 'Watchtower client settings'
+  description: 'Configure reports scheduling and details'
+  parent: system.admin_config_system

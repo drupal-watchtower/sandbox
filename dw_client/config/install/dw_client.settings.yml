@@ -1,0 +1,8 @@
+server: ''
+schedule: false
+report_threshold: 10800
+events:
+  - current_time
+  - php_memory_limit
+  - greatest_user_id
+  - greatest_watchdog_id

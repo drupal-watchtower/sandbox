@@ -1,0 +1,7 @@
+name: 'Watchtower client'
+description: 'Allows scheduling and sending reports'
+core: 8.x
+dependencies:
+  - xmlrpc
+type: module
+configure: dw_client.settings_form

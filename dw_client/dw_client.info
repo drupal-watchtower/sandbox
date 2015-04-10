@@ -1,4 +1,0 @@
-name = Drupal Watchtower Client
-description = Drupal Watchtower client module.
-core = 7.x
-configure = admin/config/system/watchtower_client

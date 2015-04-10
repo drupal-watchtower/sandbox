@@ -1,0 +1,21 @@
+# Schema for the configuration files of the dw_client module.
+
+dw_client.settings:
+  type: config_object
+  label: 'Watchtower client settings'
+  mapping:
+    schedule:
+      type: boolean
+      label: 'Enable Watchtower reporting'
+    server:
+      type: string
+      label: 'Watchtower server address'
+    report_threshold:
+      type: integer
+      label: 'Send report every'
+    events:
+      type: sequence
+      label: 'Events'
+      sequence:
+        type: string
+        label: 'Event when try send'
