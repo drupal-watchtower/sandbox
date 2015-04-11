@@ -63,7 +63,6 @@ class ReportListBuilder extends EntityListBuilder {
   public function buildHeader() {
     $header = array(
       'created' => $this->t('Created'),
-      'plugin_id' => $this->t('Plugin'),
       'label' => $this->t('Label'),
       'site' => array(
         'data' => $this->t('Site'),
@@ -83,7 +82,6 @@ class ReportListBuilder extends EntityListBuilder {
   public function buildRow(EntityInterface $entity) {
     /** @var \Drupal\dw_server\ReportInterface $entity */
     $row['created'] = $this->dateFormatter->format($entity->get('created')->value, 'short');
-    $row['plugin_id'] = $entity->getPluginId();
     $row['label']['data'] = array(
       '#type' => 'link',
       '#title' => $entity->label(),

@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.taxonomy_term.watchtower_package
+    - taxonomy.vocabulary.watchtower_module
+id: taxonomy_term.watchtower_module.watchtower_package
+field_name: watchtower_package
+entity_type: taxonomy_term
+bundle: watchtower_module
+label: Package
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

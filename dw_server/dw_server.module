@@ -5,6 +5,9 @@
  *   Base Drupal Watchtower server module.
  */
 
+use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\Crypt;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\RouteMatchInterface;
 
@@ -50,4 +53,143 @@ function template_preprocess_watchtower_report(&$variables) {
   foreach (Element::children($variables['elements']) as $key) {
     $variables['content'][$key] = $variables['elements'][$key];
   }
+}
+
+/**
+ * Implements hook_xmlrpc().
+ *
+ * @todo Get rid of https://www.drupal.org/node/1632592 use REST.
+ */
+function dw_server_xmlrpc() {
+  return [
+    'drupal_watchtower.report' => 'dw_server_process_report',
+  ];
+}
+
+/**
+ * Processes XML RPC request
+ *
+ * @param mixed $report_data
+ *   The data reported by client.
+ *
+ * @return string
+ */
+function dw_server_process_report($report_data) {
+  $default = [
+    'watchtower_key' => '',
+    'drupal_root' => '',
+    'conf_path' => '',
+    'key' => 'anonymous_site',
+    'metrics' => [],
+  ];
+  $data = NestedArray::mergeDeep($default, $report_data);
+  $data['client_ip'] = \Drupal::request()->getClientIp();
+
+  $site_label = implode('/', [
+    $data['client_ip'],
+    $data['drupal_root'],
+    $data['conf_path'],
+  ]);
+  $hash_key = Crypt::hmacBase64($site_label, $data['watchtower_key']);
+
+  $reports = \Drupal::entityQuery('watchtower_report')
+    ->condition('hash_key', $hash_key)
+    ->execute();
+
+  if ($reports && ($report = entity_load('watchtower_report', reset($reports)))) {
+    // Add new revision.
+    /** @var \Drupal\dw_server\ReportInterface $report */
+    $report->setNewRevision();
+  }
+  else {
+    // Store new report.
+    $report = \Drupal::entityManager()
+      ->getStorage('watchtower_report')
+      ->create([
+        'hash_key' => $hash_key,
+        'site' => $data['key'],
+        'label' => $site_label,
+      ]);
+  }
+
+  if (!empty($data['metrics']['dw_client:modules']) && $report->hasField('watchtower_modules')) {
+    // Populate modules field.
+    $modules = $data['metrics']['dw_client:modules'];
+
+    $terms_load = [];
+    $modules_save = [];
+    foreach ($modules as $name => $info) {
+      $terms_load[] = $name;
+      if (!empty($info['version'])) {
+        // Extend modules that have version.
+        $terms_load[] = $name . ':' . $info['version'];
+        $modules_save[$name . ':' . $info['version']] = 0;
+      }
+      else {
+        $modules_save[$name] = 0;
+      }
+    }
+    $terms_exist = \Drupal::entityQuery('taxonomy_term')
+      ->condition('vid', 'watchtower_module')
+      ->condition('name', $terms_load, 'IN')
+      ->execute();
+
+    /** @var \Drupal\taxonomy\TermStorageInterface $term_storage */
+    $term_storage = \Drupal::entityManager()->getStorage('taxonomy_term');
+
+    $terms_save = [];
+    foreach ($term_storage->loadMultiple($terms_exist) as $term) {
+      $name = $term->label();
+      if (isset($modules_save[$name])) {
+        $modules_save[$name] = $term->id();
+      }
+      else {
+        // Store tid.
+        $modules[$name]['tid'] = $term->id();
+      }
+    }
+
+    $terms_save = [];
+    foreach ($modules_save as $name => $id) {
+      if (!$id) {
+        $parent = 0;
+        list($module, $version) = explode(':', $name);
+        if (!empty($version)) {
+          // Find parent ID.
+          if (empty($modules[$name]['tid'])) {
+            // Create parent term.
+            $info = $modules[$module];
+            $term = $term_storage->create([
+              'vid' => 'watchtower_module',
+              'name' => $module,
+              'description' => $info['name'],
+              'watchtower_package' => $info['package'],
+            ]);
+            $term->save();
+            $modules[$name]['tid'] = $term->id();
+          }
+          $parent = $modules[$name]['tid'];
+        }
+        // Create a module terms.
+        $term = $term_storage->create([
+          'vid' => 'watchtower_module',
+          'name' => $name,
+          'description' => $info['name'],
+          'watchtower_package' => $info['package'],
+          'parent' => $parent,
+        ]);
+        $term->save();
+        $id = $term->id();
+      }
+      $terms_save[] = $id;
+    }
+
+    $report->set('watchtower_modules', $terms_save);
+  }
+
+  $report
+    ->setReportData(Json::encode($data))
+    ->save();
+
+  return $report->url('canonical', ['absolute' => TRUE]);
 }

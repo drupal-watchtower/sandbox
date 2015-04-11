@@ -6,7 +6,9 @@
  *   functionality.
  */
 
+use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Site\Settings;
 
 /**
  * Implements hook_help().
@@ -50,7 +52,7 @@ function dw_client_hook_info() {
  */
 function dw_client_cron() {
   $config = \Drupal::config('dw_client.settings');
-  if ($config->get('schedule') && $config->get('server')) {
+  if ($config->get('schedule') && $config->get('url')) {
     _dw_client_report();
   }
 }
@@ -86,29 +88,49 @@ function dw_client_modules_uninstalled($modules) {
  *
  * @param bool $force
  *   Do not check the last report time.
+ * @param string $url
+ *   (Optional) the URL to use, default will use configured.
  *
  * @return bool
  *   Is result successful.
  */
-function _dw_client_report($force = FALSE) {
+function _dw_client_report($force = FALSE, $url = '') {
   $time = time();
   $config = \Drupal::config('dw_client.settings');
   $last_run = \Drupal::state()->get('dw_client.report_last', 0);
-  if ($watchtower = $config->get('server')) {
+  if ($url) {
+    $watchtower = $url;
+  }
+  else {
+    $watchtower = $config->get('url');
+  }
+  if ($watchtower) {
     if ($force || ($time - $last_run >= $config->get('report_threshold'))) {
-      $private_key = Drupal::service('private_key')->get();
-      $instance_report = [
+      $private_key = \Drupal::service('private_key')->get();
+      $hash_salt = Settings::getHashSalt();
+      $drupal_root = DRUPAL_ROOT;
+      $conf_path = conf_path();
+      $report = [
         // @todo Use better hash.
-        'watchtower_key' => md5($private_key),
+        'watchtower_key' => Crypt::hmacBase64('Watchtower', $private_key . $hash_salt),
         // @todo Revisit deprecated.
-        'drupal_root' => DRUPAL_ROOT . '/' . conf_path(),
-        'modules' => dw_client_loaded_modules(),
-        'patches' => dw_client_patches(),
-        'metrics' => \Drupal::moduleHandler()->invokeAll('dw_metric'),
+        'drupal_root' => $drupal_root,
+        'conf_path' => $conf_path,
+        'metrics' => [
+          // Add standard metrics.
+          'php:version' => phpversion(),
+          'php:max_execution_time' => ini_get('max_execution_time'),
+          'php:memory_limit' => ini_get('memory_limit'),
+          'site:core:version' => \Drupal::VERSION,
+        ],
       ];
 
+      $report['metrics']['dw_client:modules'] = dw_client_loaded_modules();
+      $report['metrics']['dw_client:patches'] = dw_client_patches();
+      $report['metrics']['dw_client:metrics'] = \Drupal::moduleHandler()->invokeAll('dw_metric');
+
       $result = xmlrpc($watchtower, array(
-        'drupal_watchtower.report' => array($instance_report),
+        'drupal_watchtower.report' => array($report),
       ));
 
       // Any execution should set it's mark.
@@ -117,7 +139,8 @@ function _dw_client_report($force = FALSE) {
         \Drupal::state()->set('dw_client.report_url',$result);
       }
       else {
-        \Drupal::logger('dw_client')->error(xmlrpc_error_msg());
+        \Drupal::state()->delete('dw_client.report_url');
+        \Drupal::logger('dw_client')->error(xmlrpc_error_msg() ?: 'No message');
       }
     }
   }
@@ -176,8 +199,8 @@ function dw_client_get_enabled_not_hidden_non_core_modules() {
 function dw_client_modules_array_format(&$item, $name) {
   $item = (object) array(
     'name' => $item->info['name'],
-    'machine_name' => $name,
-    'description' => $item->info['description'],
+    // 'machine_name' => $name,
+    // 'description' => $item->info['description'],
     'package' => $item->info['package'],
     'version' => $item->info['version'],
   );

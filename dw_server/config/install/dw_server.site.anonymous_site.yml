@@ -1,0 +1,7 @@
+langcode: en
+status: true
+dependencies: {  }
+label: 'Anonymous site'
+id: anonymous_site
+description: 'The Unknown site'
+url: 'http://example.com'

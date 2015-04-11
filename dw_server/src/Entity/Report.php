@@ -43,6 +43,7 @@ use Drupal\user\UserInterface;
  *     "id" = "id",
  *     "bundle" = "site",
  *     "label" = "label",
+ *     "revision" = "revision_id",
  *     "uuid" = "uuid"
  *   },
  *   common_reference_target = FALSE,
@@ -81,6 +82,17 @@ class Report extends ContentEntityBase implements ReportInterface {
       ->setDescription(t('The site to which the report is assigned.'))
       ->setSetting('target_type', 'watchtower_site');
 
+    $fields['hash_key'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Hash key'))
+      ->setDescription(t('Used to identify report.'))
+      ->setSetting('max_length', 255);
+
+    $fields['revision_id'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Revision ID'))
+      ->setDescription(t('The Report revision ID.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
+
     $fields['label'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Label'))
       ->setDescription(t('The report label.'))
@@ -91,43 +103,25 @@ class Report extends ContentEntityBase implements ReportInterface {
         'weight' => -5,
       ))
       // @todo Decide visibility.
-      ->setDisplayConfigurable('view', TRUE)
+      //->setDisplayConfigurable('view', TRUE)
       ->setDisplayOptions('form', array(
         'type' => 'string_textfield',
         'weight' => -5,
       ))
       ->setDisplayConfigurable('form', TRUE);
 
-    // @todo Own field item with {plugin_id, data} schema().
-    $fields['plugin_id'] = BaseFieldDefinition::create('string')
-      ->setLabel(t('Plugin for report'))
-      ->setDescription(t('The report plugin ID.'))
-      ->setSetting('max_length', 64)
-      // @todo Replace with formatter and widget.
-      ->setDisplayOptions('view', array(
-        'label' => 'hidden',
-        'type' => 'string',
-        'weight' => 0,
-      ))
-      ->setDisplayConfigurable('view', TRUE)
-      ->setDisplayOptions('form', array(
-        'type' => 'string_textfield',
-        // Default comment body field has weight 20.
-        'weight' => 0,
-      ))
-      ->setDisplayConfigurable('form', TRUE);
-
-    $fields['description'] = BaseFieldDefinition::create('text_long')
+    $fields['description'] = BaseFieldDefinition::create('string_long')
       ->setLabel(t('Report data'))
       ->setDescription(t('A content of the report.'))
+      ->setRevisionable(TRUE)
       ->setDisplayOptions('view', array(
         'label' => 'hidden',
-        'type' => 'text_default',
+        'type' => 'basic_string',
         'weight' => 10,
       ))
       ->setDisplayConfigurable('view', TRUE)
       ->setDisplayOptions('form', array(
-        'type' => 'text_textfield',
+        'type' => 'string_textarea',
         'weight' => 10,
       ))
       ->setDisplayConfigurable('form', TRUE);
@@ -150,6 +144,7 @@ class Report extends ContentEntityBase implements ReportInterface {
     $fields['changed'] = BaseFieldDefinition::create('changed')
       ->setLabel(t('Changed'))
       ->setDescription(t('The time that the report was last edited.'))
+      ->setRevisionable(TRUE)
       ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'timestamp',
@@ -253,23 +248,4 @@ class Report extends ContentEntityBase implements ReportInterface {
     return $this;
   }
 
-  /**
-   * Returns the plugin instance.
-   *
-   * @return \Drupal\dw_server\ReportPluginInterface|null
-   *   The plugin instance for this report.
-   */
-  public function getPlugin() {
-    return $this->getPluginCollection()->get($this->get('plugin_id')->value);
-  }
-
-  /**
-   * Returns the plugin ID of the report.
-   *
-   * @return string
-   *   The plugin ID for this report.
-   */
-  public function getPluginId() {
-    return $this->get('plugin_id')->value;
-  }
 }

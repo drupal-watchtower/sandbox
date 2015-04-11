@@ -1,0 +1,27 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - dw_server.site.anonymous_site
+    - field.storage.watchtower_report.watchtower_modules
+  module:
+    - entity_reference
+id: watchtower_report.anonymous_site.watchtower_modules
+field_name: watchtower_modules
+entity_type: watchtower_report
+bundle: anonymous_site
+label: Modules
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      watchtower_module: watchtower_module
+    sort:
+      field: _none
+    auto_create: true
+field_type: entity_reference

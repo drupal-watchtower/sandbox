@@ -4,6 +4,9 @@
  * @file
  * Remains of drupal 7 server xmlrpc endpoints.
  */
+use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\Crypt;
+use Drupal\Component\Utility\NestedArray;
 
 /**
  * Implements hook_xmlrpc().
@@ -25,16 +28,49 @@ function dw_server_xmlrpc() {
  * @return string
  */
 function dw_server_process_report($report_data) {
-  module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
-
-  $default = array(
+  $default = [
     'watchtower_key' => '',
     'drupal_root' => '',
-    'modules' => array(),
-    'metrics' => array(),
-    'patches' => array(),
-  );
-  $data = array_merge($default, $report_data);
+    'conf_path' => '',
+    'key' => 'anonymous_site',
+    'metrics' => [],
+  ];
+  $data = NestedArray::mergeDeep($default, $report_data);
+  $data['client_ip'] = \Drupal::request()->getClientIp();
+
+  $site_label = implode('/', [
+    $data['client_ip'],
+    $data['drupal_root'],
+    $data['conf_path'],
+  ]);
+  $hash_key = Crypt::hmacBase64($site_label, $data['watchtower_key']);
+
+  $reports = \Drupal::entityQuery('watchtower_report')
+    ->condition('hask_key', $hash_key)
+    ->execute();
+
+  if ($reports && ($report = entity_load('watchtower_report', reset($reports)))) {
+    // Add new revision.
+    /** @var \Drupal\dw_server\ReportInterface $report */
+    $report->setNewRevision();
+  }
+  else {
+    // Store new report.
+    $report = \Drupal::entityManager()
+      ->getStorage('watchtower_report')
+      ->create([
+        'hash_key' => $hash_key,
+        'site' => $data['key'],
+        'label' => $site_label,
+      ]);
+  }
+  $report
+    ->setReportData(Json::encode($data))
+    ->save();
+
+  \Drupal::logger('dw_server')->debug($report->url('canonical', ['absolute' => TRUE]));
+  return $report->urlInfo()->setAbsolute()->toUriString();
+
 
   $instance = _dw_server_get_instance($data['watchtower_key'], \Drupal::request()->getClientIp(), $data['drupal_root']);
 
@@ -96,6 +132,7 @@ define('WATCHTOWER_PACKAGES_VID', taxonomy_vocabulary_machine_name_load(WATCHTOW
  */
 function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root) {
   // Lookup for existing instance's node
+  \Drupal::entityQuery('watchtower_report');
   $query = new EntityFieldQuery();
   $results = $query
     ->entityCondition('entity_type', 'node')

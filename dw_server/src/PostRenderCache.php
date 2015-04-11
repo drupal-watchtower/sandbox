@@ -110,14 +110,15 @@ class PostRenderCache {
     $callback = 'dw_server.post_render_cache:renderReport';
     $placeholder = $this->renderer->generateCachePlaceholder($callback, $context);
     $markup = '';
-    /** @var \Drupal\dw_server\Plugin\ReportPluginInterface $plugin */
-    //$plugin = $this->reportManager->getInstance($context);
-    $plugin = $this->reportManager->createInstance($context['plugin_id'], $context);
+    if ($this->reportManager->getDefinition($context['plugin_id'], FALSE)) {
+      /** @var \Drupal\dw_server\Plugin\ReportPluginInterface $plugin */
+      $plugin = $this->reportManager->createInstance($context['plugin_id'], $context);
 
-    if ($plugin) {
-      // @todo Check access.
-      $markup = $plugin->renderReport($context);
-      $markup = $this->renderer->render($markup);
+      if ($plugin) {
+        // @todo Check access.
+        $markup = $plugin->renderReport($context);
+        $markup = $this->renderer->render($markup);
+      }
     }
     $element['#markup'] = str_replace($placeholder, $markup, $element['#markup']);
     return $element;

@@ -7,6 +7,7 @@
 
 namespace Drupal\dw_client\Form;
 
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -31,23 +32,25 @@ class DwClientSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    if ($url = \Drupal::state()->get('dw_client.report_url')) {
+    $config = $this->config('dw_client.settings');
+
+    if (($url = \Drupal::state()->get('dw_client.report_url')) && UrlHelper::isExternal($url)) {
       // Show where to find results.
       // @todo Use as enabled state.
-      $link = Url::fromUri($url);
+      $url = Url::fromUri($url);
       $form['report_url'] = [
-        //'#type' => 'markup',
-        '#markup' =>  $this->t('Report url @link', ['@url' => $link->toString()]),
+        '#type' => 'link',
+        '#prefix' => $this->t('Report URL '),
+        '#title' => $url->toString(),
+        '#url' =>  $url,
       ];
     }
 
-    $config = $this->config('dw_client.settings');
-
     $example_url = 'http://example.com/xmlrpc.php';
-    $form['server'] = array(
+    $form['url'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Watchtower server address'),
-      '#default_value' => $config->get('server'),
+      '#default_value' => $config->get('url'),
       '#placeholder' => $example_url,
       '#description' => $this->t('Enter address of XML-RPC interface, for example: %server', ['%server' => $example_url]),
     );
@@ -86,10 +89,11 @@ class DwClientSettingsForm extends ConfigFormBase {
   public function validateForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('dw_client.settings');
 
-    if ($config->get('schedule') && $config->get('server') != $form_state->getValue('server')) {
-      // @todo Validate new server.
-      $r = _dw_client_report(TRUE);
-      debug($r);
+    if ($config->get('schedule') && $config->get('url') != $form_state->getValue('url')) {
+      // Validate new server.
+      if (!_dw_client_report(TRUE, $form_state->getValue('url'))) {
+        $form_state->setErrorByName('url', $this->t('Error connection to server'));
+      }
     }
   }
 
@@ -98,7 +102,7 @@ class DwClientSettingsForm extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('dw_client.settings')
-      ->set('server', $form_state->getValue('server'))
+      ->set('url', $form_state->getValue('url'))
       ->set('schedule', $form_state->getValue('schedule'))
       ->set('report_threshold', $form_state->getValue('report_threshold'))
       ->set('events', $form_state->getValue('events'))

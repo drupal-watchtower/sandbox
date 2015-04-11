@@ -1,0 +1,71 @@
+name: 'Watchtower storage'
+description: 'Drupal instance node type, packages and modules vocabularies'
+core: 8.x
+package: Statistics
+php: 5.2.4
+version: 7.x-1.0-alpha3
+project: watchtower_storage
+dependencies:
+  - double_field
+  - entityreference
+  - features
+  - strongarm
+  - taxonomy
+  - text
+features:
+  ctools:
+    - 'strongarm:strongarm:1'
+  features_api:
+    - 'api:1'
+  field:
+    - node-drupal_instance-body
+    - node-drupal_instance-field_domain
+    - node-drupal_instance-field_drupal_root
+    - node-drupal_instance-field_metrics
+    - node-drupal_instance-field_modules
+    - node-drupal_instance-field_patches
+    - node-drupal_instance-field_server_ip
+    - node-drupal_instance-field_watchtower_key
+    - node-patch-body
+    - node-patch-field_applicable_to
+    - node-patch-field_fixed_in
+    - node-patch-field_priority
+    - node-patch-field_status
+    - taxonomy_term-modules-field_package
+  node:
+    - drupal_instance
+    - patch
+  taxonomy:
+    - modules
+    - package
+  variable:
+    - comment_anonymous_drupal_instance
+    - comment_anonymous_patch
+    - comment_default_mode_drupal_instance
+    - comment_default_mode_patch
+    - comment_default_per_page_drupal_instance
+    - comment_default_per_page_patch
+    - comment_drupal_instance
+    - comment_form_location_drupal_instance
+    - comment_form_location_patch
+    - comment_patch
+    - comment_preview_drupal_instance
+    - comment_preview_patch
+    - comment_subject_field_drupal_instance
+    - comment_subject_field_patch
+    - field_bundle_settings_node__drupal_instance
+    - field_bundle_settings_node__patch
+    - menu_options_drupal_instance
+    - menu_options_patch
+    - menu_parent_drupal_instance
+    - menu_parent_patch
+    - node_options_drupal_instance
+    - node_options_patch
+    - node_preview_drupal_instance
+    - node_preview_patch
+    - node_submitted_drupal_instance
+    - node_submitted_patch
+features_exclude:
+  dependencies:
+    ctools: ctools
+type: module

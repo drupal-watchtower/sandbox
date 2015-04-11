@@ -74,8 +74,9 @@ class ReportViewBuilder extends EntityViewBuilder {
         $context = [
           'report_id' => $entity->id(),
           'view_mode' => $view_mode,
-          'plugin_id' => $entity->getPluginId(),
           'site_id'   => $entity->getSiteId(),
+          // @todo get rid of.
+          'plugin_id' => 'modules',
         ];
         $placeholder = $this->renderer->generateCachePlaceholder($callback, $context);
         $build[$id]['plugin'] = [

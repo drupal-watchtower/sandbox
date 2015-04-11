@@ -50,20 +50,4 @@ interface ReportInterface extends ContentEntityInterface, EntityChangedInterface
    */
   public function getSiteUrl();
 
-  /**
-   * Returns the plugin instance.
-   *
-   * @return \Drupal\dw_server\ReportPluginInterface|null
-   *   The plugin instance for this report.
-   */
-  public function getPlugin();
-
-  /**
-   * Returns the plugin ID of the report.
-   *
-   * @return string
-   *   The plugin ID for this report.
-   */
-  public function getPluginId();
-
 }

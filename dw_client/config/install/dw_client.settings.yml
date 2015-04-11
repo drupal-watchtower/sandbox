@@ -1,4 +1,4 @@
-server: ''
+url: ''
 schedule: false
 report_threshold: 10800
 events:

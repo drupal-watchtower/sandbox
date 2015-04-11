@@ -7,7 +7,7 @@ dw_client.settings:
     schedule:
       type: boolean
       label: 'Enable Watchtower reporting'
-    server:
+    url:
       type: string
       label: 'Watchtower server address'
     report_threshold:
