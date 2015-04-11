@@ -155,8 +155,10 @@ class Report extends ContentEntityBase implements ReportInterface {
     $fields['author_id'] = BaseFieldDefinition::create('entity_reference')
       // @todo Add setting for formatter .
       ->setLabel(t('Author'))
+      ->setRevisionable(TRUE)
       ->setSetting('target_type', 'user')
-      ->setDefaultValue(0)
+      ->setSetting('handler', 'default')
+      ->setDefaultValueCallback('Drupal\dw_server\Entity\Report::getCurrentUserId')
       ->setDisplayOptions('form', array(
         'type' => 'entity_reference_autocomplete',
         'weight' => -10,
@@ -218,7 +220,7 @@ class Report extends ContentEntityBase implements ReportInterface {
    * {@inheritdoc}
    */
   public function getOwner() {
-    $user = $this->get('author_uid')->entity;
+    $user = $this->get('author_id')->entity;
     if (!$user || $user->isAnonymous()) {
       $user = User::getAnonymousUser();
     }
@@ -229,14 +231,14 @@ class Report extends ContentEntityBase implements ReportInterface {
    * {@inheritdoc}
    */
   public function getOwnerId() {
-    return $this->get('author_uid')->target_id;
+    return $this->get('author_id')->target_id;
   }
 
   /**
    * {@inheritdoc}
    */
   public function setOwnerId($uid) {
-    $this->set('author_uid', $uid);
+    $this->set('author_id', $uid);
     return $this;
   }
 
@@ -244,8 +246,20 @@ class Report extends ContentEntityBase implements ReportInterface {
    * {@inheritdoc}
    */
   public function setOwner(UserInterface $account) {
-    $this->set('author_uid', $account->id());
+    $this->set('author_id', $account->id());
     return $this;
+  }
+
+  /**
+   * Default value callback for 'author_id' base field definition.
+   *
+   * @see ::baseFieldDefinitions()
+   *
+   * @return array
+   *   An array of default values.
+   */
+  public static function getCurrentUserId() {
+    return array(\Drupal::currentUser()->id());
   }
 
 }
