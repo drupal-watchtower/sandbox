@@ -57,6 +57,15 @@ function dw_client_settings_form($form, $form_state) {
     '#default_value' => variable_get('watchtower_on_modules_events', FALSE),
     '#description' => t('Watchtower client will interact with watchtower server every time when modules become enabled or disabled.'),
   );
+  $form =  system_settings_form($form);
+  $form['#submit'][] = 'dw_client_settings_form_submit';
+  return $form;
+}
 
-  return system_settings_form($form);
+/**
+ * Submit callback.
+ */
+function dw_client_settings_form_submit($form, $form_state) {
+  // @todo Add validation.
+  _dw_client_report(TRUE);
 }

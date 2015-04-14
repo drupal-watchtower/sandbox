@@ -45,8 +45,6 @@ function dw_server_process_report($report_data) {
     'drupal_root' => '',
     'conf_path' => '',
     'metrics' => array(),
-    'modules' => array(),
-    'patches' => array(),
   );
   $data = drupal_array_merge_deep($default, $report_data);
 
@@ -67,12 +65,12 @@ function dw_server_process_report($report_data) {
   if (isset($metrics['site:patches'])) {
     $patches = $metrics['site:patches'];
     unset($metrics['site:patches']);
-    ksort($patches);
-    if ($patches = _dw_server_get_patches_nids($data['patches'])) {
+    if ($patches = _dw_server_get_patches_nids($patches)) {
       $node->get('field_patches')->set($patches);
     }
   }
 
+  // Keep metrics ordered.
   ksort($metrics);
 
   // Fills field_metrics field.

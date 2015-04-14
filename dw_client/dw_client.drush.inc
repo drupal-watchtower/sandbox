@@ -68,26 +68,6 @@ function dw_client_drush_report() {
     return;
   }
 
-  $private_key = drupal_get_private_key();
-  $hash_salt = drupal_get_hash_salt();
-  // @todo Use better hash.
-  $watchtower_site_key = drupal_hmac_base64('Watchtower', $private_key . $hash_salt);
-  $drupal_root = DRUPAL_ROOT;
-  $conf_path = conf_path();
-  $instance_report = array(
-    'watchtower_key' => $watchtower_site_key,
-    'drupal_root' => $drupal_root,
-    'conf_path' => $conf_path,
-    'metrics' => array(
-      'drush:version' => DRUSH_VERSION,
-      // Add standard metrics.
-      'php:version' => phpversion(),
-      'php:max_execution_time' => ini_get('max_execution_time'),
-      'php:memory_limit' => ini_get('memory_limit'),
-      'site:core:version' => drush_drupal_version(),
-    ),
-  );
-
   if ($key = drush_get_option('key')) {
     // @todo Decide on bundle
     $metrics['key'] = $key;
@@ -96,8 +76,51 @@ function dw_client_drush_report() {
     $metrics['key'] = 'Anonymous';
   }
 
-  // Extend standard metrics.
-  $metrics = &$instance_report['metrics'];
+  $report = _dw_client_get_default_report();
+  // Add drush metrics.
+  $report['metrics']['drush:version'] = DRUSH_VERSION;
+
+  if ($result = xmlrpc($url, array('drupal_watchtower.report' => array($report)))) {
+    $msg = dt('Report has been send. Response !r', array('!r' => $result));
+    drush_log($msg, 'success');
+  }
+  else {
+    drush_log($msg_error, 'error');
+  }
+}
+
+/**
+ * Returns array of default report with metrics.
+ *
+ * @return array
+ *   Keyed array with metrics and their values.
+ */
+function _dw_client_get_default_report() {
+  $private_key = drupal_get_private_key();
+  $hash_salt = drupal_get_hash_salt();
+  // @todo Use better hash.
+  $watchtower_site_key = drupal_hmac_base64('Watchtower', $private_key . $hash_salt);
+  $drupal_root = DRUPAL_ROOT;
+  $conf_path = conf_path();
+  $memory_limit = ini_get('memory_limit');
+  $report = array(
+    'watchtower_key' => $watchtower_site_key,
+    'drupal_root' => $drupal_root,
+    'conf_path' => $conf_path,
+    'metrics' => array(
+      // Add standard metrics.
+      'php:version' => phpversion(),
+      'php:max_execution_time' => ini_get('max_execution_time'),
+      'php:memory_limit' => $memory_limit,
+      'php:memory_limit_formatted' => parse_size($memory_limit),
+
+    ),
+  );
+  $metrics = &$report['metrics'];
+
+  if (defined('VERSION')) {
+    $metrics['site:core:version'] = VERSION;
+  }
 
   $metrics['site:user:max'] = db_query("SELECT MAX(uid) FROM {users}")->fetchField();
   $metrics['site:user:count'] = db_query("SELECT COUNT(uid) FROM {users}")->fetchField();
@@ -107,9 +130,16 @@ function dw_client_drush_report() {
     $metrics['site:dblog:count'] = db_query("SELECT COUNT(wid) FROM {watchdog}")->fetchField();
   }
 
-  // Add modules and patches.
+  if (module_exists('dw_client')) {
+    // Gather metrics with hook.
+    if ($hook_metrics = module_invoke_all('dw_metric')) {
+      drupal_array_merge_deep($metrics, $hook_metrics);
+    }
+  }
+
+  // Add modules.
   $modules_save = array();
-  // Get current list of modules.
+  // Get current list of all modules.
   $modules = system_rebuild_module_data();
 
   foreach ($modules as $machine_name => $module) {
@@ -123,14 +153,56 @@ function dw_client_drush_report() {
       );
     }
   }
-  // @todo Configure as options.
   $metrics['site:modules'] = $modules_save;
 
-  if ($result = xmlrpc($url, array('drupal_watchtower.report' => array($instance_report)))) {
-    $msg = dt('Report has been send. Response !r', array('!r' => $result));
-    drush_log($msg, 'success');
+  // Add patches.
+  // @todo Configure recursive option.
+  if ($patches = dw_client_search_patches($modules)) {
+    $metrics['site:patches'] = $patches;
   }
-  else {
-    drush_log($msg_error, 'error');
+
+  return $report;
+}
+
+/**
+ * Retrieves patches for a list of modules grouped by module version name.
+ *
+ * @param array $modules
+ *   List of modules in format of system_rebuild_module_data() function.
+ * @param bool $recursive
+ *   Flag defining that patches should be searched recursively inside modules'
+ *   directories.
+ *
+ * @return array
+ *   Keyed array of module's patches.
+ */
+function dw_client_search_patches($modules, $recursive = FALSE) {
+  $patches = array();
+  foreach ($modules as $module_name => $module) {
+    $module_version_name = $module_name . '-' . $module->info['version'];
+    $module_path = dirname($module->filename);
+    $module_patches = array();
+    if ($recursive) {
+      // Recursive version - looks thru whole module directory structure
+      $directory = new \RecursiveDirectoryIterator($module_path);
+      $flattened = new \RecursiveIteratorIterator($directory);
+      $files = new \RegexIterator($flattened, '/.*\.patch/i');
+      foreach ($files as $file) {
+        $module_patches[] = $file->getPath();
+      }
+    }
+    else {
+      // Non-recursive version - only modules root directory to be scanned
+      $module_patches = glob($module_path . '/*.patch');
+    }
+
+    if ($module_patches) {
+      foreach ($module_patches as &$patch_path) {
+        $patch_path = basename($patch_path);
+      }
+      $patches[$module_name . ':' . $module_version_name] = $module_patches;
+    }
   }
+
+  return $patches;
 }

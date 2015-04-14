@@ -48,7 +48,6 @@ function _dw_server_get_instance($watchtower_key, $drupal_root, $conf_path, $ser
     $node->get('field_drupal_root')->set($drupal_root);
     $node->get('field_configuration_path')->set($conf_path);
     $node->get('field_server_ip')->set($server_ip);
-    // $node->save();
   }
 
   return $node;
@@ -100,47 +99,74 @@ function _dw_server_get_modules_tids($modules) {
 }
 
 /**
- * Retrieve patches nids by their description.
+ * Return IDs of nodes that store patches.
  *
- * @param array $patches
+ * @param array $module_patches
+ *   Keyed array of modules with patches.
  *
  * @return array
+ *  An array of node IDs of patches.
  */
-function _dw_server_get_patches_nids($patches) {
-  $patches_nids = array();
+function _dw_server_get_patches_nids($module_patches) {
+  if (!$module_patches) {
+    // Early exit to prevent DB access.
+    return array();
+  }
 
-  foreach ($patches as $patch_name => $module_name_and_version) {
-    // Lookup for existing instance's node
+  $modules = array();
+  foreach (array_keys($module_patches) as $module_name_and_version) {
+    list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+    $modules[$module_name] = 0;
+    $modules[$module_version_name] = 0;
+  }
+
+  // Assign IDs to modules, each module should be saved already.
+  $query = new EntityFieldQuery();
+  $results = $query
+    ->entityCondition('entity_type', 'taxonomy_term')
+    ->entityCondition('bundle', WATCHTOWER_MODULES_VOCABULARY)
+    ->propertyCondition('name', array_keys($modules), 'IN')
+    ->execute();
+  if (!empty($results['taxonomy_term'])) {
+    $terms = entity_load('taxonomy_term', array_keys($results['taxonomy_term']));
+    foreach ($terms as $id => $term) {
+      // Assign actual ID.
+      $modules[$term->name] = $id;
+    }
+  }
+
+  $patch_ids = array();
+  foreach ($module_patches as $module_name_and_version => $patches) {
+    list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+    // Get patches per module.
+    $patches_create = drupal_map_assoc(array_values($patches));
     $query = new EntityFieldQuery();
     $results = $query
       ->entityCondition('entity_type', 'node')
       ->entityCondition('bundle', 'patch')
-      ->propertyCondition('title', $patch_name)
+      ->propertyCondition('title', $patches, 'IN')
+      ->fieldCondition('field_fixed_in', 'tid', $modules[$module_name])
       ->execute();
-
     if (!empty($results['node'])) {
-      $node = node_load(reset($results['node'])->nid);
-    }
-    else {
-      $node = NULL;
-      $node->is_new = TRUE;
-      $node->type = 'patch';
-      $node->title = $patch_name;
-      $node->language = LANGUAGE_NONE;
-      $node->field_priority[LANGUAGE_NONE][] = array('value' => 'normal');
-      $node->field_status[LANGUAGE_NONE][] = array('value' => 'new');
-      list($module_name, $module_version_name) = explode(':', $module_name_and_version);
-      if ($module_term = reset(taxonomy_get_term_by_name($module_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term->tid);
+      $nodes = entity_load('node', array_keys($results['node']));
+      foreach ($nodes as $id => $node) {
+        $patch_ids[] = $id;
+        unset($patches_create[$node->title]);
       }
-      if ($module_term_version = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term_version->tid);
-      }
-      node_save($node);
     }
-
-    $patches_nids[] = $node->nid;
+    // Create needed patches.
+    foreach ($patches_create as $name => $v) {
+      $node = entity_create('node', array(
+        'type' => 'patch',
+        'title' => $name,
+      ));
+      $node = entity_metadata_wrapper('node', $node);
+      $node->get('field_fixed_in')->set($modules[$module_name]);
+      $node->get('field_applicable_to')->set(array($modules[$module_version_name]));
+      $node->save();
+      $patch_ids[] = $node->get('nid')->value();
+    }
   }
 
-  return $patches_nids;
+  return $patch_ids;
 }
