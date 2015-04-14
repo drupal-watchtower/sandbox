@@ -12,12 +12,40 @@
 define('WATCHTOWER_DEFAULT_REPORT_THRESHOLD', 10800);
 
 /**
+ * Implements hook_help().
+ */
+function dw_client_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#dw_client':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The module allows sending reports to Watchtower server.') . '</p>';
+      $output .= '<h3>' . t('Uses') . '</h3>';
+      $output .= '<dl>';
+      $output .= '<dt>' . t('Configure settings') . '</dt>';
+      $output .= '<dd>' . t('Administrators can configure automatic report send at <a href="!link">Watchtower administration page</a>.', array(
+          '!link' => url('admin/config/system/watchtower_client'),
+        )) . '</dd>';
+      $output .= '<dt>' . t('Configuring cron') . '</dt>';
+      $output .= '<dd>' . t('A working <a href="!cron">cron maintenance task</a> is required to send reports automatically.', array(
+          '!cron' => url('admin/config/system/cron'),
+        )) . '</dd>';
+      $output .= '</dl>';
+      return $output;
+
+    case 'admin/config/system/watchtower_client':
+      return t('Configure server and schedule time to send reports');
+  }
+}
+
+/**
  * Implements hook_menu().
  */
 function dw_client_menu() {
   $items = array();
   $items['admin/config/system/watchtower_client'] = array(
     'title' => 'Drupal Watchtower Client settings',
+    'description' => 'Configure reports scheduling and details',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('dw_client_settings_form'),
     'access arguments' => array('administer site configuration'),

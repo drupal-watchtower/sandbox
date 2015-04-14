@@ -6,18 +6,16 @@
  */
 
 /**
- * Implements hook_menu().
+ * Implements hook_help().
  */
-function dw_server_menu() {
-  $items = array();
-  $items['admin/config/system/watchtower_server'] = array(
-    'title' => 'Drupal Watchtower Server settings',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('dw_server_settings_form'),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'dw_server.admin.inc',
-  );
-  return $items;
+function dw_server_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#dw_server':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The Watchtower server module provides storage for site reports') . '</p>';
+      return $output;
+  }
 }
 
 /**
