@@ -94,7 +94,7 @@ function watchtower_storage_field_default_field_instances() {
     'entity_type' => 'node',
     'field_name' => 'field_configuration_path',
     'label' => 'Configuration path',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'text_processing' => 0,
       'user_register_form' => FALSE,
@@ -383,7 +383,7 @@ function watchtower_storage_field_default_field_instances() {
     'entity_type' => 'node',
     'field_name' => 'field_server_ip',
     'label' => 'Server IP',
-    'required' => 1,
+    'required' => 0,
     'settings' => array(
       'text_processing' => 0,
       'user_register_form' => FALSE,
@@ -430,7 +430,7 @@ function watchtower_storage_field_default_field_instances() {
     'entity_type' => 'node',
     'field_name' => 'field_watchtower_key',
     'label' => 'Watchtower Key',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'text_processing' => 0,
       'user_register_form' => FALSE,

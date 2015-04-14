@@ -108,11 +108,23 @@ function dw_client_drush_report() {
   }
 
   // Add modules and patches.
-  // system_list('module_enabled')
-  $modules = module_list();
+  $modules_save = array();
+  // Get current list of modules.
+  $modules = system_rebuild_module_data();
+
+  foreach ($modules as $machine_name => $module) {
+    if (empty($module->info['hidden']) && $module->status && $module->info['package'] !== 'Core') {
+      // Send only not hidden, enabled and non-core modules from display list.
+      $modules_save[$machine_name] = array(
+        'name' => $module->info['name'],
+        'description' => $module->info['description'],
+        'package' => $module->info['package'],
+        'version' => $module->info['version'],
+      );
+    }
+  }
   // @todo Configure as options.
-  $metrics['site:modules'] = $modules;
-  // $metrics['site:patches'] = $modules;
+  $metrics['site:modules'] = $modules_save;
 
   if ($result = xmlrpc($url, array('drupal_watchtower.report' => array($instance_report)))) {
     $msg = dt('Report has been send. Response !r', array('!r' => $result));

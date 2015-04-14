@@ -32,7 +32,8 @@ function dw_server_xmlrpc() {
 /**
  * Processes XML RPC request
  *
- * @param $data
+ * @param array $report_data
+ *   The data from client.
  *
  * @return string
  */
@@ -42,44 +43,47 @@ function dw_server_process_report($report_data) {
   $default = array(
     'watchtower_key' => '',
     'drupal_root' => '',
-    'modules' => array(),
+    'conf_path' => '',
     'metrics' => array(),
+    'modules' => array(),
     'patches' => array(),
   );
-  $data = array_merge($default, $report_data);
+  $data = drupal_array_merge_deep($default, $report_data);
 
-  $instance = _dw_server_get_instance($data['watchtower_key'], ip_address(), $data['drupal_root']);
+  $node = _dw_server_get_instance($data['watchtower_key'], $data['drupal_root'], $data['conf_path'], ip_address());
 
+  $metrics = $data['metrics'];
   // Fills field_modules field.
-  ksort($data['modules']);
-  $instance->field_modules[LANGUAGE_NONE] = array();
-  if ($modules = _dw_server_get_modules_tids($data['modules'])) {
-    foreach ($modules as $tid) {
-      $instance->field_modules[LANGUAGE_NONE][] = array('tid' => $tid);
+  if (isset($metrics['site:modules'])) {
+    $modules = $metrics['site:modules'];
+    unset($metrics['site:modules']);
+    ksort($modules);
+    if ($modules = _dw_server_get_modules_tids($modules)) {
+      $node->get('field_modules')->set($modules);
     }
-  }
-
-  // Fills field_metrics field.
-  ksort($data['metrics']);
-  $instance->field_metrics[LANGUAGE_NONE] = array();
-  foreach ($data['metrics'] as $key => $value) {
-    $instance->field_metrics[LANGUAGE_NONE][] = array(
-      'first' => $key,
-      'second' => $value,
-    );
   }
 
   // Fills field_patches field.
-  ksort($data['patches']);
-  $instance->field_patches[LANGUAGE_NONE] = array();
-  if ($patches = _dw_server_get_patches_nids($data['patches'])) {
-    foreach ($patches as $nid) {
-      $instance->field_patches[LANGUAGE_NONE][] = array('target_id' => $nid);
+  if (isset($metrics['site:patches'])) {
+    $patches = $metrics['site:patches'];
+    unset($metrics['site:patches']);
+    ksort($patches);
+    if ($patches = _dw_server_get_patches_nids($data['patches'])) {
+      $node->get('field_patches')->set($patches);
     }
   }
 
-  $instance->revision = TRUE;
-  node_save($instance);
+  ksort($metrics);
 
-  return url('node/' . $instance->nid, array('absolute' => TRUE));
+  // Fills field_metrics field.
+  $metrics_save = array();
+  foreach ($metrics as $k => $v) {
+    $metrics_save[] = $k . ' = ' . $v;
+  }
+  $node->get('field_metrics')->set($metrics_save);
+
+  $node->revision = TRUE;
+  $node->save();
+
+  return url('node/' . $node->get('nid')->value(), array('absolute' => TRUE));
 }

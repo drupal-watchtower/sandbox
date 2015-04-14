@@ -11,38 +11,44 @@ define('WATCHTOWER_PACKAGES_VID', taxonomy_vocabulary_machine_name_load(WATCHTOW
  *
  * @param string $watchtower_key
  *   String identifying drupal instance.
+ * @param string $drupal_root
+ *   Watchtower Client drupal instance site directory.
+ * @param string $conf_path
+ *   Watchtower Client drupal instance site directory.
  * @param string $server_ip
  *   Watchtower client ip address.
- * @param string $drupal_site_root
- *   Watchtower Client drupal instance site directory.
  *
  * @return Object
  *   Corresponing node object.
  */
-function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root) {
+function _dw_server_get_instance($watchtower_key, $drupal_root, $conf_path, $server_ip) {
   // Lookup for existing instance's node
   $query = new EntityFieldQuery();
   $results = $query
     ->entityCondition('entity_type', 'node')
     ->entityCondition('bundle', 'drupal_instance')
     ->fieldCondition('field_watchtower_key', 'value', $watchtower_key)
+    ->fieldCondition('field_drupal_root', 'value', $drupal_root)
+    ->fieldCondition('field_configuration_path', 'value', $conf_path)
+    // @todo Suppose makes no sense.
     ->fieldCondition('field_server_ip', 'value', $server_ip)
-    ->fieldCondition('field_drupal_root', 'value', $drupal_site_root)
     ->execute();
 
   if (!empty($results['node'])) {
-    $node = node_load(reset($results['node'])->nid);
+    $node = entity_metadata_wrapper('node', reset($results['node'])->nid);
+    //$node = node_load(reset($results['node'])->nid);
   }
   else {
-    $node = NULL;
-    $node->is_new = TRUE;
-    $node->type = 'drupal_instance';
-    $node->title = $server_ip . '/' . $drupal_site_root;
-    $node->language = LANGUAGE_NONE;
-    $node->field_watchtower_key[LANGUAGE_NONE][] = array('value' => $watchtower_key);
-    $node->field_server_ip[LANGUAGE_NONE][] = array('value' => $server_ip);
-    $node->field_drupal_root[LANGUAGE_NONE][] = array('value' => $drupal_site_root);
-    node_save($node);
+    $node = entity_create('node', array(
+      'type' => 'drupal_instance',
+      'title' => $server_ip . '/' . $drupal_root . '/' . $conf_path,
+    ));
+    $node = entity_metadata_wrapper('node', $node);
+    $node->get('field_watchtower_key')->set($watchtower_key);
+    $node->get('field_drupal_root')->set($drupal_root);
+    $node->get('field_configuration_path')->set($conf_path);
+    $node->get('field_server_ip')->set($server_ip);
+    // $node->save();
   }
 
   return $node;
@@ -59,25 +65,28 @@ function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root)
 function _dw_server_get_modules_tids($modules) {
   $modules_tids = array();
 
-  foreach ($modules as $module) {
-    if (!$package = reset(taxonomy_get_term_by_name($module['package'], WATCHTOWER_PACKAGES_VOCABULARY))) {
-      $package = NULL;
+  foreach ($modules as $name => $module) {
+    $terms = taxonomy_get_term_by_name($module['package'], WATCHTOWER_PACKAGES_VOCABULARY);
+    if (!$package = reset($terms)) {
+      $package = new stdClass();
       $package->vid = WATCHTOWER_PACKAGES_VID;
       $package->name = $module['package'];
       taxonomy_term_save($package);
     }
-    if (!$module_term = reset(taxonomy_get_term_by_name($module['machine_name'], WATCHTOWER_MODULES_VOCABULARY))) {
-      $module_term = NULL;
+    $terms = taxonomy_get_term_by_name($name, WATCHTOWER_MODULES_VOCABULARY);
+    if (!$module_term = reset($terms)) {
+      $module_term = new stdClass();
       $module_term->vid = WATCHTOWER_MODULES_VID;
-      $module_term->name = $module['machine_name'];
+      $module_term->name = $name;
       $module_term->description = $module['description'];
       $module_term->field_package[LANGUAGE_NONE][] = array('tid' => $package->tid);
       taxonomy_term_save($module_term);
     }
 
-    $module_version_name = $module['machine_name'] . '-' . $module['version'];
-    if (!$module_version_term = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
-      $module_version_term = NULL;
+    $module_version_name = $name . '-' . $module['version'];
+    $terms = taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY);
+    if (!$module_version_term = reset($terms)) {
+      $module_version_term = new stdClass();
       $module_version_term->vid = WATCHTOWER_MODULES_VID;
       $module_version_term->name = $module_version_name;
       $module_version_term->parent = $module_term->tid;
