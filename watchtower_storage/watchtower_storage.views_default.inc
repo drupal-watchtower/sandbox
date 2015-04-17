@@ -91,7 +91,11 @@ function watchtower_storage_views_default_views() {
   $handler->display->display_options['path'] = 'reports';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'Drupal instances';
+  $handler->display->display_options['menu']['description'] = 'List of reports from drupal site instances';
+  $handler->display->display_options['menu']['weight'] = '10';
   $handler->display->display_options['menu']['name'] = 'main-menu';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
 
   /* Display: Block */
   $handler = $view->new_display('block', 'Block', 'reports');
@@ -182,10 +186,15 @@ function watchtower_storage_views_default_views() {
   $handler->display->display_options['path'] = 'patches';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'Patches';
+  $handler->display->display_options['menu']['description'] = 'List of patches from reports';
+  $handler->display->display_options['menu']['weight'] = '11';
   $handler->display->display_options['menu']['name'] = 'main-menu';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
 
   /* Display: Feed */
   $handler = $view->new_display('feed', 'Feed', 'patches_feed');
+  $handler->display->display_options['enabled'] = FALSE;
   $handler->display->display_options['pager']['type'] = 'some';
   $handler->display->display_options['style_plugin'] = 'rss';
   $handler->display->display_options['row_plugin'] = 'node_rss';
