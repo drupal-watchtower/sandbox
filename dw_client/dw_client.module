@@ -104,12 +104,12 @@ function _dw_client_report($force = FALSE) {
     if ($force || ($time - variable_get('watchtower_last_report', 0) >= variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD))) {
       // This could be called from drush command so file can be loaded already
       // from ~/.drush folder.
-      if (!function_exists('_dw_client_get_default_report')) {
-        module_load_include('inc', 'dw_client', 'dw_client.drush');
+      if (!function_exists('watchtower_get_default_report')) {
+        module_load_include('inc', 'dw_client', 'watchtower.drush');
       }
 
       $result = xmlrpc($watchtower, array(
-        'drupal_watchtower.report' => array(_dw_client_get_default_report()),
+        'drupal_watchtower.report' => array(watchtower_get_default_report()),
       ));
 
       if (!$result) {

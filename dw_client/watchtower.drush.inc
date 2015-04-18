@@ -8,11 +8,11 @@
 /**
  * Implements hook_drush_command().
  */
-function dw_client_drush_command() {
+function watchtower_drush_command() {
   $items = array(
     'dw_report' => array(
       'aliases' => array('dwr'),
-      'callback' => 'dw_client_drush_report',
+      'callback' => 'watchtower_drush_report',
       'core' => array('7'),
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
       'description' => 'Report configured metrics to Watchtower server.',
@@ -36,11 +36,11 @@ function dw_client_drush_command() {
 /**
  * Implements hook_drush_help().
  */
-function dw_client_drush_help($section) {
+function watchtower_drush_help($section) {
   switch ($section) {
-    case 'meta:dw_client:title':
+    case 'meta:watchtower:title':
       return dt('Watchtower commands');
-    case 'meta:dw_client:summary':
+    case 'meta:watchtower:summary':
       return dt('Watchtower drush commands.');
   }
 }
@@ -48,7 +48,7 @@ function dw_client_drush_help($section) {
 /**
  * Drush callback: dw_report.
  */
-function dw_client_drush_report() {
+function watchtower_drush_report() {
   $msg_success = dt('Report has been send.');
   $msg_error = dt('Report has not been send.');
 
@@ -76,7 +76,7 @@ function dw_client_drush_report() {
     $metrics['key'] = 'Anonymous';
   }
 
-  $report = _dw_client_get_default_report();
+  $report = watchtower_get_default_report();
   // Add drush metrics.
   $report['metrics']['drush:version'] = DRUSH_VERSION;
 
@@ -95,7 +95,7 @@ function dw_client_drush_report() {
  * @return array
  *   Keyed array with metrics and their values.
  */
-function _dw_client_get_default_report() {
+function watchtower_get_default_report() {
   $private_key = drupal_get_private_key();
   $hash_salt = drupal_get_hash_salt();
   // @todo Use better hash.
@@ -157,7 +157,7 @@ function _dw_client_get_default_report() {
 
   // Add patches.
   // @todo Configure recursive option.
-  if ($patches = dw_client_search_patches($modules)) {
+  if ($patches = watchtower_search_patches($modules)) {
     $metrics['site:patches'] = $patches;
   }
 
@@ -176,7 +176,7 @@ function _dw_client_get_default_report() {
  * @return array
  *   Keyed array of module's patches.
  */
-function dw_client_search_patches($modules, $recursive = FALSE) {
+function watchtower_search_patches($modules, $recursive = FALSE) {
   $patches = array();
   foreach ($modules as $module_name => $module) {
     $module_version_name = $module_name . '-' . $module->info['version'];
