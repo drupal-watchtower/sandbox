@@ -138,22 +138,72 @@ function _dw_server_get_patches_nids($module_patches) {
   $patch_ids = array();
   foreach ($module_patches as $module_name_and_version => $patches) {
     list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+
+    if (empty($modules[$module_name])) {
+      // Module could be patched but not installed yet.
+      $term = entity_create('taxonomy_term', array(
+        'vid' => WATCHTOWER_MODULES_VID,
+        'name' => $module_name,
+        'description'=> t('Disabled'),
+      ));
+      // @todo Add reaction on that event.
+      entity_save('taxonomy_term', $term);
+      $modules[$module_name] = $term->tid;
+    }
+    $module_tid = $modules[$module_name];
+
+    if (empty($modules[$module_version_name])) {
+      // Module could be patched but not installed yet.
+      $term = entity_create('taxonomy_term', array(
+        'vid' => WATCHTOWER_MODULES_VID,
+        'name' => $module_name,
+        'parent' => $module_tid,
+        'description'=> t('Disabled'),
+      ));
+      // @todo Add reaction on that event.
+      entity_save('taxonomy_term', $term);
+      $modules[$module_version_name] = $term->tid;
+    }
+    $module_version_tid = $modules[$module_version_name];
+
     // Get patches per module.
     $patches_create = drupal_map_assoc(array_values($patches));
     $query = new EntityFieldQuery();
+    // Search for any patches then could exists.
     $results = $query
       ->entityCondition('entity_type', 'node')
       ->entityCondition('bundle', 'patch')
       ->propertyCondition('title', $patches, 'IN')
-      ->fieldCondition('field_fixed_in', 'tid', $modules[$module_name])
+      ->fieldCondition('field_fixed_in', 'tid', $module_tid)
       ->execute();
+
     if (!empty($results['node'])) {
+      // Load existing patches.
       $nodes = entity_load('node', array_keys($results['node']));
       foreach ($nodes as $id => $node) {
         $patch_ids[] = $id;
         unset($patches_create[$node->title]);
+        // Update patches with current module data.
+        $node = entity_metadata_wrapper('node', $node);
+        $found = FALSE;
+        $modules_applicable = array();
+        foreach ($node->get('field_applicable_to') as $value) {
+          if ($value->raw() == $module_version_tid) {
+            $found = TRUE;
+            break;
+          }
+          $modules_applicable[] = $value->raw();
+        }
+        if (!$found) {
+          // Add new module version.
+          $node
+            ->get('field_applicable_to')
+            ->set($modules_applicable);
+          $node->save();
+        }
       }
     }
+
     // Create needed patches.
     foreach ($patches_create as $name => $v) {
       $node = entity_create('node', array(
@@ -161,8 +211,8 @@ function _dw_server_get_patches_nids($module_patches) {
         'title' => $name,
       ));
       $node = entity_metadata_wrapper('node', $node);
-      $node->get('field_fixed_in')->set($modules[$module_name]);
-      $node->get('field_applicable_to')->set(array($modules[$module_version_name]));
+      $node->get('field_fixed_in')->set($module_tid);
+      $node->get('field_applicable_to')->set(array($module_version_tid));
       $node->save();
       $patch_ids[] = $node->get('nid')->value();
     }
