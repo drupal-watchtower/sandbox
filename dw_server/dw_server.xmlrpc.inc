@@ -11,38 +11,43 @@ define('WATCHTOWER_PACKAGES_VID', taxonomy_vocabulary_machine_name_load(WATCHTOW
  *
  * @param string $watchtower_key
  *   String identifying drupal instance.
+ * @param string $drupal_root
+ *   Watchtower Client drupal instance site directory.
+ * @param string $conf_path
+ *   Watchtower Client drupal instance site directory.
  * @param string $server_ip
  *   Watchtower client ip address.
- * @param string $drupal_site_root
- *   Watchtower Client drupal instance site directory.
  *
  * @return Object
  *   Corresponing node object.
  */
-function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root) {
+function _dw_server_get_instance($watchtower_key, $drupal_root, $conf_path, $server_ip) {
   // Lookup for existing instance's node
   $query = new EntityFieldQuery();
   $results = $query
     ->entityCondition('entity_type', 'node')
     ->entityCondition('bundle', 'drupal_instance')
     ->fieldCondition('field_watchtower_key', 'value', $watchtower_key)
+    ->fieldCondition('field_drupal_root', 'value', $drupal_root)
+    ->fieldCondition('field_configuration_path', 'value', $conf_path)
+    // @todo Suppose makes no sense.
     ->fieldCondition('field_server_ip', 'value', $server_ip)
-    ->fieldCondition('field_drupal_root', 'value', $drupal_site_root)
     ->execute();
 
   if (!empty($results['node'])) {
-    $node = node_load(reset($results['node'])->nid);
+    $node = entity_metadata_wrapper('node', reset($results['node'])->nid);
+    //$node = node_load(reset($results['node'])->nid);
   }
   else {
-    $node = NULL;
-    $node->is_new = TRUE;
-    $node->type = 'drupal_instance';
-    $node->title = $server_ip . '/' . $drupal_site_root;
-    $node->language = LANGUAGE_NONE;
-    $node->field_watchtower_key[LANGUAGE_NONE][] = array('value' => $watchtower_key);
-    $node->field_server_ip[LANGUAGE_NONE][] = array('value' => $server_ip);
-    $node->field_drupal_root[LANGUAGE_NONE][] = array('value' => $drupal_site_root);
-    node_save($node);
+    $node = entity_create('node', array(
+      'type' => 'drupal_instance',
+      'title' => $server_ip . '/' . $drupal_root . '/' . $conf_path,
+    ));
+    $node = entity_metadata_wrapper('node', $node);
+    $node->get('field_watchtower_key')->set($watchtower_key);
+    $node->get('field_drupal_root')->set($drupal_root);
+    $node->get('field_configuration_path')->set($conf_path);
+    $node->get('field_server_ip')->set($server_ip);
   }
 
   return $node;
@@ -59,25 +64,28 @@ function _dw_server_get_instance($watchtower_key, $server_ip, $drupal_site_root)
 function _dw_server_get_modules_tids($modules) {
   $modules_tids = array();
 
-  foreach ($modules as $module) {
-    if (!$package = reset(taxonomy_get_term_by_name($module['package'], WATCHTOWER_PACKAGES_VOCABULARY))) {
-      $package = NULL;
+  foreach ($modules as $name => $module) {
+    $terms = taxonomy_get_term_by_name($module['package'], WATCHTOWER_PACKAGES_VOCABULARY);
+    if (!$package = reset($terms)) {
+      $package = new stdClass();
       $package->vid = WATCHTOWER_PACKAGES_VID;
       $package->name = $module['package'];
       taxonomy_term_save($package);
     }
-    if (!$module_term = reset(taxonomy_get_term_by_name($module['machine_name'], WATCHTOWER_MODULES_VOCABULARY))) {
-      $module_term = NULL;
+    $terms = taxonomy_get_term_by_name($name, WATCHTOWER_MODULES_VOCABULARY);
+    if (!$module_term = reset($terms)) {
+      $module_term = new stdClass();
       $module_term->vid = WATCHTOWER_MODULES_VID;
-      $module_term->name = $module['machine_name'];
+      $module_term->name = $name;
       $module_term->description = $module['description'];
       $module_term->field_package[LANGUAGE_NONE][] = array('tid' => $package->tid);
       taxonomy_term_save($module_term);
     }
 
-    $module_version_name = $module['machine_name'] . '-' . $module['version'];
-    if (!$module_version_term = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
-      $module_version_term = NULL;
+    $module_version_name = $name . '-' . $module['version'];
+    $terms = taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY);
+    if (!$module_version_term = reset($terms)) {
+      $module_version_term = new stdClass();
       $module_version_term->vid = WATCHTOWER_MODULES_VID;
       $module_version_term->name = $module_version_name;
       $module_version_term->parent = $module_term->tid;
@@ -91,47 +99,124 @@ function _dw_server_get_modules_tids($modules) {
 }
 
 /**
- * Retrieve patches nids by their description.
+ * Return IDs of nodes that store patches.
  *
- * @param array $patches
+ * @param array $module_patches
+ *   Keyed array of modules with patches.
  *
  * @return array
+ *  An array of node IDs of patches.
  */
-function _dw_server_get_patches_nids($patches) {
-  $patches_nids = array();
+function _dw_server_get_patches_nids($module_patches) {
+  if (!$module_patches) {
+    // Early exit to prevent DB access.
+    return array();
+  }
 
-  foreach ($patches as $patch_name => $module_name_and_version) {
-    // Lookup for existing instance's node
+  $modules = array();
+  foreach (array_keys($module_patches) as $module_name_and_version) {
+    list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+    $modules[$module_name] = 0;
+    $modules[$module_version_name] = 0;
+  }
+
+  // Assign IDs to modules, each module should be saved already.
+  $query = new EntityFieldQuery();
+  $results = $query
+    ->entityCondition('entity_type', 'taxonomy_term')
+    ->entityCondition('bundle', WATCHTOWER_MODULES_VOCABULARY)
+    ->propertyCondition('name', array_keys($modules), 'IN')
+    ->execute();
+  if (!empty($results['taxonomy_term'])) {
+    $terms = entity_load('taxonomy_term', array_keys($results['taxonomy_term']));
+    foreach ($terms as $id => $term) {
+      // Assign actual ID.
+      $modules[$term->name] = $id;
+    }
+  }
+
+  $patch_ids = array();
+  foreach ($module_patches as $module_name_and_version => $patches) {
+    list($module_name, $module_version_name) = explode(':', $module_name_and_version);
+
+    if (empty($modules[$module_name])) {
+      // Module could be patched but not installed yet.
+      $term = entity_create('taxonomy_term', array(
+        'vid' => WATCHTOWER_MODULES_VID,
+        'name' => $module_name,
+        'description'=> t('Disabled'),
+      ));
+      // @todo Add reaction on that event.
+      entity_save('taxonomy_term', $term);
+      $modules[$module_name] = $term->tid;
+    }
+    $module_tid = $modules[$module_name];
+
+    if (empty($modules[$module_version_name])) {
+      // Module could be patched but not installed yet.
+      $term = entity_create('taxonomy_term', array(
+        'vid' => WATCHTOWER_MODULES_VID,
+        'name' => $module_name,
+        'parent' => $module_tid,
+        'description'=> t('Disabled'),
+      ));
+      // @todo Add reaction on that event.
+      entity_save('taxonomy_term', $term);
+      $modules[$module_version_name] = $term->tid;
+    }
+    $module_version_tid = $modules[$module_version_name];
+
+    // Get patches per module.
+    $patches_create = drupal_map_assoc(array_values($patches));
     $query = new EntityFieldQuery();
+    // Search for any patches then could exists.
     $results = $query
       ->entityCondition('entity_type', 'node')
       ->entityCondition('bundle', 'patch')
-      ->propertyCondition('title', $patch_name)
+      ->propertyCondition('title', $patches, 'IN')
+      ->fieldCondition('field_fixed_in', 'tid', $module_tid)
       ->execute();
 
     if (!empty($results['node'])) {
-      $node = node_load(reset($results['node'])->nid);
-    }
-    else {
-      $node = NULL;
-      $node->is_new = TRUE;
-      $node->type = 'patch';
-      $node->title = $patch_name;
-      $node->language = LANGUAGE_NONE;
-      $node->field_priority[LANGUAGE_NONE][] = array('value' => 'normal');
-      $node->field_status[LANGUAGE_NONE][] = array('value' => 'new');
-      list($module_name, $module_version_name) = explode(':', $module_name_and_version);
-      if ($module_term = reset(taxonomy_get_term_by_name($module_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term->tid);
+      // Load existing patches.
+      $nodes = entity_load('node', array_keys($results['node']));
+      foreach ($nodes as $id => $node) {
+        $patch_ids[] = $id;
+        unset($patches_create[$node->title]);
+        // Update patches with current module data.
+        $node = entity_metadata_wrapper('node', $node);
+        $found = FALSE;
+        $modules_applicable = array();
+        foreach ($node->get('field_applicable_to') as $value) {
+          if ($value->raw() == $module_version_tid) {
+            $found = TRUE;
+            break;
+          }
+          $modules_applicable[] = $value->raw();
+        }
+        if (!$found) {
+          // Add new module version.
+          $node
+            ->get('field_applicable_to')
+            ->set($modules_applicable);
+          $node->save();
+        }
       }
-      if ($module_term_version = reset(taxonomy_get_term_by_name($module_version_name, WATCHTOWER_MODULES_VOCABULARY))) {
-        $node->field_applicable_to[LANGUAGE_NONE][] = array('tid' => $module_term_version->tid);
-      }
-      node_save($node);
     }
 
-    $patches_nids[] = $node->nid;
+    // Create needed patches.
+    foreach ($patches_create as $name => $v) {
+      $node = entity_create('node', array(
+        'type' => 'patch',
+        'title' => $name,
+      ));
+      $node = entity_metadata_wrapper('node', $node);
+      $node->get('field_fixed_in')->set($module_tid);
+      $node->get('field_applicable_to')->set(array($module_version_tid));
+      $node->save();
+      $patch_ids[] = $node->get('nid')->value();
+    }
   }
 
-  return $patches_nids;
+  return $patch_ids;
 }

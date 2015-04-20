@@ -1,0 +1,208 @@
+<?php
+
+/**
+ * @file
+ * Watchtower Drush commands.
+ */
+
+/**
+ * Implements hook_drush_command().
+ */
+function watchtower_drush_command() {
+  $items = array(
+    'dw_report' => array(
+      'aliases' => array('dwr'),
+      'callback' => 'watchtower_drush_report',
+      'core' => array('7'),
+      'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
+      'description' => 'Report configured metrics to Watchtower server.',
+      'arguments' => array(
+      ),
+      'options' => array(
+        'url' => 'Server url to report.',
+        'metrics' => 'Categories to report (not supported).',
+        'key' => 'Auth key (site machine name).',
+      ),
+      'examples' => array(
+        'drush dwr' => 'Reports metrics to configured server.',
+        'drush dwr --url=https://example.com/xmlrpc.php' => 'Same as above, but using the server.',
+      ),
+    ),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_drush_help().
+ */
+function watchtower_drush_help($section) {
+  switch ($section) {
+    case 'meta:watchtower:title':
+      return dt('Watchtower commands');
+    case 'meta:watchtower:summary':
+      return dt('Watchtower drush commands.');
+  }
+}
+
+/**
+ * Drush callback: dw_report.
+ */
+function watchtower_drush_report() {
+  $msg_success = dt('Report has been send.');
+  $msg_error = dt('Report has not been send.');
+
+  $url = drush_get_option('url');
+  if (!valid_url($url, TRUE)) {
+    if (module_exists('dw_client')) {
+      if (_dw_client_report(TRUE)) {
+        drush_log($msg_success, 'success');
+      }
+      else {
+        drush_log($msg_error, 'error');
+      }
+      return;
+    }
+    $msg = dt('Watchtower server url missing and no client configured.');
+    drush_log($msg, 'notice');
+    return;
+  }
+
+  if ($key = drush_get_option('key')) {
+    // @todo Decide on bundle
+    $metrics['key'] = $key;
+  }
+  else {
+    $metrics['key'] = 'Anonymous';
+  }
+
+  $report = watchtower_get_default_report();
+  // Add drush metrics.
+  $report['metrics']['drush:version'] = DRUSH_VERSION;
+
+  if ($result = xmlrpc($url, array('drupal_watchtower.report' => array($report)))) {
+    $msg = dt('Report has been send. Response !r', array('!r' => $result));
+    drush_log($msg, 'success');
+  }
+  else {
+    drush_log($msg_error, 'error');
+  }
+}
+
+/**
+ * Returns array of default report with metrics.
+ *
+ * @return array
+ *   Keyed array with metrics and their values.
+ */
+function watchtower_get_default_report() {
+  $private_key = drupal_get_private_key();
+  $hash_salt = drupal_get_hash_salt();
+  // @todo Use better hash.
+  $watchtower_site_key = drupal_hmac_base64('Watchtower', $private_key . $hash_salt);
+  $drupal_root = DRUPAL_ROOT;
+  $conf_path = conf_path();
+  $memory_limit = ini_get('memory_limit');
+  $report = array(
+    'watchtower_key' => $watchtower_site_key,
+    'drupal_root' => $drupal_root,
+    'conf_path' => $conf_path,
+    'metrics' => array(
+      // Add standard metrics.
+      'php:version' => phpversion(),
+      'php:max_execution_time' => ini_get('max_execution_time'),
+      'php:memory_limit' => $memory_limit,
+      'php:memory_limit_formatted' => parse_size($memory_limit),
+
+    ),
+  );
+  $metrics = &$report['metrics'];
+
+  if (defined('VERSION')) {
+    $metrics['site:core:version'] = VERSION;
+  }
+
+  $metrics['site:user:max'] = db_query("SELECT MAX(uid) FROM {users}")->fetchField();
+  $metrics['site:user:count'] = db_query("SELECT COUNT(uid) FROM {users}")->fetchField();
+
+  if (module_exists('dblog')) {
+    $metrics['site:dblog:max'] = db_query("SELECT MAX(wid) FROM {watchdog}")->fetchField();
+    $metrics['site:dblog:count'] = db_query("SELECT COUNT(wid) FROM {watchdog}")->fetchField();
+  }
+
+  if (module_exists('dw_client')) {
+    // Gather metrics with hook.
+    if ($hook_metrics = module_invoke_all('dw_metric')) {
+      drupal_array_merge_deep($metrics, $hook_metrics);
+    }
+  }
+
+  // Add modules.
+  $modules_save = array();
+  // Get current list of all modules.
+  $modules = system_rebuild_module_data();
+
+  foreach ($modules as $machine_name => $module) {
+    if (empty($module->info['hidden']) && $module->status && $module->info['package'] !== 'Core') {
+      // Send only not hidden, enabled and non-core modules from display list.
+      $modules_save[$machine_name] = array(
+        'name' => $module->info['name'],
+        'description' => $module->info['description'],
+        'package' => $module->info['package'],
+        'version' => $module->info['version'],
+      );
+    }
+  }
+  $metrics['site:modules'] = $modules_save;
+
+  // Add patches.
+  // @todo Configure recursive option.
+  if ($patches = watchtower_search_patches($modules)) {
+    $metrics['site:patches'] = $patches;
+  }
+
+  return $report;
+}
+
+/**
+ * Retrieves patches for a list of modules grouped by module version name.
+ *
+ * @param array $modules
+ *   List of modules in format of system_rebuild_module_data() function.
+ * @param bool $recursive
+ *   Flag defining that patches should be searched recursively inside modules'
+ *   directories.
+ *
+ * @return array
+ *   Keyed array of module's patches.
+ */
+function watchtower_search_patches($modules, $recursive = FALSE) {
+  $patches = array();
+  foreach ($modules as $module_name => $module) {
+    $module_version_name = $module_name . '-' . $module->info['version'];
+    $module_path = dirname($module->filename);
+    $module_patches = array();
+    if ($recursive) {
+      // Recursive version - looks thru whole module directory structure
+      $directory = new \RecursiveDirectoryIterator($module_path);
+      $flattened = new \RecursiveIteratorIterator($directory);
+      $files = new \RegexIterator($flattened, '/.*\.patch/i');
+      foreach ($files as $file) {
+        $module_patches[] = $file->getPath();
+      }
+    }
+    else {
+      // Non-recursive version - only modules root directory to be scanned
+      $module_patches = glob($module_path . '/*.patch');
+    }
+
+    if ($module_patches) {
+      foreach ($module_patches as &$patch_path) {
+        $patch_path = basename($patch_path);
+      }
+      $patches[$module_name . ':' . $module_version_name] = $module_patches;
+    }
+  }
+
+  return $patches;
+}

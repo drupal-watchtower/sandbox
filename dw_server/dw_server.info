@@ -3,3 +3,4 @@ description = Drupal Watchtower Server.
 core = 7.x
 configure = admin/config/system/watchtower_server
 dependencies[] = "watchtower_storage"
+dependencies[] = "diff"
