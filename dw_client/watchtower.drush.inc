@@ -9,7 +9,7 @@
  * Implements hook_drush_command().
  */
 function watchtower_drush_command() {
-  $items = array(
+  return array(
     'dw_report' => array(
       'aliases' => array('dwr'),
       'callback' => 'watchtower_drush_report',
@@ -28,9 +28,23 @@ function watchtower_drush_command() {
         'drush dwr --url=https://example.com/xmlrpc.php' => 'Same as above, but using the server.',
       ),
     ),
+    'dw_report_nginx' => array(
+      'aliases' => array('dwn'),
+      'callback' => 'watchtower_drush_report_nginx',
+      'core' => array('7'),
+      'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+      'description' => 'Report configured metrics to Watchtower server for all nginx sites defined.',
+      'arguments' => array(
+        'url' => 'The url of report server',
+        'folder' => 'Nginx folder to scan, default to /etc/nginx/sites-enabled',
+      ),
+      'options' => array(
+      ),
+      'examples' => array(
+        'drush dwn https://example.com/xml.rpc' => 'Reports metrics to server.',
+      ),
+    ),
   );
-
-  return $items;
 }
 
 /**
@@ -205,4 +219,44 @@ function watchtower_search_patches($modules, $recursive = FALSE) {
   }
 
   return $patches;
+}
+
+/**
+ * Scans nginx sites and try to rend report on each.
+ */
+function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-enabled') {
+  if (!valid_url($url, TRUE)) {
+    drush_log('Please provide valid url of report server.', 'error');
+    return FALSE;
+  }
+  // Collect all files.
+  $files = glob(rtrim($folder, '/') . '/*');
+  foreach ($files as $file) {
+    // Parse file content (server_name & root)
+    $content = file_get_contents($file);
+    $matches = array();
+    if (preg_match('/root\s*(\S*)/', $content, $matches)) {
+      $root = trim($matches[1], ';');
+      if (preg_match('/server_name\s*(\S*)/', $content, $matches)) {
+        // @todo Parse port.
+        $host = 'http://' . trim($matches[1], ';');
+
+        // @todo Make compatible with 6+ drush version.
+        if (drush_valid_drupal_root($root)) {
+          $conf = drush_conf_path($host);
+          // @todo Use new process to send report.
+          drush_log("Drupal host found: drush -l $host -r $root dwr --url $url", 'success');
+        }
+        else {
+          drush_log("Found non-drupal host = $host with root = $root", 'warning');
+        }
+      }
+      else {
+        drush_log('No server_name found', 'error');
+      }
+    }
+    else {
+      drush_log('No root found', 'error');
+    }
+  }
 }
