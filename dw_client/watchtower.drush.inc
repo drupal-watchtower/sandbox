@@ -77,7 +77,7 @@ function watchtower_drush_report() {
       return;
     }
     $msg = dt('Watchtower server url missing and no client configured.');
-    drush_log($msg, 'notice');
+    drush_log($msg, 'error');
     return;
   }
 
