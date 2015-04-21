@@ -242,16 +242,13 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
 
         // @todo Make compatible with 6+ drush version.
         if (drush_valid_drupal_root($root)) {
-          $conf = drush_conf_path($host);
-          // @todo Use new process to send report.
-          drush_log("Drupal host found: $host conf is $conf", 'success');
-          echo "To try send report: drush -l $host -r $root dwr --url $url \n";
+          echo "To try send report: drush -l $host -r $root dwr --url=$url \n";
 
           // @todo Use the same executable.
           $command = 'drush -l ' . escapeshellarg($host) .
             ' -r ' . escapeshellarg($root) .
             ' dwr --url=' .  escapeshellarg($url);
-          echo $command . "\n";
+
           $descriptors = array(
             // stdin.
             0 => array('pipe', 'r'),
