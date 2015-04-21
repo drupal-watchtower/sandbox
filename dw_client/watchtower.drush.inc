@@ -250,7 +250,7 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
           // @todo Use the same executable.
           $command = 'drush -l ' . escapeshellarg($host) .
             ' -r ' . escapeshellarg($root) .
-            ' dwr --url ' .  escapeshellarg($url);
+            ' dwr --url=' .  escapeshellarg($url);
           echo $command . "\n";
           $descriptors = array(
             // stdin.
