@@ -31,7 +31,6 @@ function watchtower_drush_command() {
     'dw_report_nginx' => array(
       'aliases' => array('dwn'),
       'callback' => 'watchtower_drush_report_nginx',
-      'core' => array('7'),
       'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
       'description' => 'Report configured metrics to Watchtower server for all nginx sites defined.',
       'arguments' => array(
@@ -225,7 +224,7 @@ function watchtower_search_patches($modules, $recursive = FALSE) {
  * Scans nginx sites and try to rend report on each.
  */
 function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-enabled') {
-  if (!valid_url($url, TRUE)) {
+  if (!_watchtower_valid_url($url)) {
     drush_log('Please provide valid url of report server.', 'error');
     return FALSE;
   }
@@ -259,4 +258,34 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
       drush_log('No root found', 'error');
     }
   }
+}
+
+/**
+ * Helper to validate URL when no core available.
+ *
+ * This is a copy-paste of core because this no core could exists.
+ *
+ * @param string $url
+ *   The URL to validate
+ *
+ * @return bool
+ *   TRUE if URL is valid.
+ */
+function _watchtower_valid_url($url) {
+  return (bool)preg_match("
+      /^                                                      # Start at the beginning of the text
+      (?:ftp|https?|feed):\/\/                                # Look for ftp, http, https or feed schemes
+      (?:                                                     # Userinfo (optional) which is typically
+        (?:(?:[\w\.\-\+!$&'\(\)*\+,;=]|%[0-9a-f]{2})+:)*      # a username or a username and password
+        (?:[\w\.\-\+%!$&'\(\)*\+,;=]|%[0-9a-f]{2})+@          # combination
+      )?
+      (?:
+        (?:[a-z0-9\-\.]|%[0-9a-f]{2})+                        # A domain name or a IPv4 address
+        |(?:\[(?:[0-9a-f]{0,4}:)*(?:[0-9a-f]{0,4})\])         # or a well formed IPv6 address
+      )
+      (?::[0-9]+)?                                            # Server port number (optional)
+      (?:[\/|\?]
+        (?:[\w#!:\.\?\+=&@$'~*,;\/\(\)\[\]\-]|%[0-9a-f]{2})   # The path and query (optional)
+      *)?
+    $/xi", $url);
 }
