@@ -246,6 +246,45 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
           // @todo Use new process to send report.
           drush_log("Drupal host found: $host conf is $conf", 'success');
           echo "To try send report: drush -l $host -r $root dwr --url $url \n";
+
+          // @todo Use the same executable.
+          $command = 'drush -l ' . escapeshellarg($host) .
+            ' -r ' . escapeshellarg($root) .
+            ' dwr --url ' .  escapeshellarg($url);
+          echo $command . "\n";
+          $descriptors = array(
+            // stdin.
+            0 => array('pipe', 'r'),
+            // stdout.
+            1 => array('pipe', 'w'),
+            // stderr.
+            2 => array('pipe', 'w'),
+          );
+          $pipes = array();
+          if ($h = proc_open($command, $descriptors, $pipes, $root)) {
+            $output = '';
+            while (!feof($pipes[1])) {
+              $output .= fgets($pipes[1]);
+            }
+            $error = '';
+            while (!feof($pipes[2])) {
+              $error .= fgets($pipes[2]);
+            }
+
+            fclose($pipes[0]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+
+            $return_code = proc_close($h);
+
+            // @todo Drush outputs to err somehow.
+            if ($output) {
+              drush_print("Output:\n" . $output);
+            }
+            if ($error) {
+              drush_print("Error:\n" . $error);
+            }
+          }
         }
         else {
           drush_log("Found unknown host = $host with root = $root", 'warning');
