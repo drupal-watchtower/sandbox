@@ -134,6 +134,7 @@ function watchtower_get_default_report() {
   if (defined('VERSION')) {
     $metrics['site:core:version'] = VERSION;
   }
+  $metrics['site:core:base_url'] = url(NULL, array('absolute' => TRUE));
 
   $metrics['site:user:max'] = db_query("SELECT MAX(uid) FROM {users}")->fetchField();
   $metrics['site:user:count'] = db_query("SELECT COUNT(uid) FROM {users}")->fetchField();
@@ -242,7 +243,7 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
 
         // @todo Make compatible with 6+ drush version.
         if (drush_valid_drupal_root($root)) {
-          echo "To try send report: drush -l $host -r $root dwr --url=$url \n";
+          echo "Trying send report: drush -l $host -r $root dwr --url=$url \n";
 
           // @todo Use the same executable.
           $command = 'drush -l ' . escapeshellarg($host) .
