@@ -244,10 +244,11 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
         if (drush_valid_drupal_root($root)) {
           $conf = drush_conf_path($host);
           // @todo Use new process to send report.
-          drush_log("Drupal host found: drush -l $host -r $root dwr --url $url", 'success');
+          drush_log("Drupal host found: $host conf is $conf", 'success');
+          echo "To try send report: drush -l $host -r $root dwr --url $url \n";
         }
         else {
-          drush_log("Found non-drupal host = $host with root = $root", 'warning');
+          drush_log("Found unknown host = $host with root = $root", 'warning');
         }
       }
       else {
