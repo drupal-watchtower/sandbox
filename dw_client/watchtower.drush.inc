@@ -41,7 +41,7 @@ function watchtower_drush_command() {
       'options' => array(
       ),
       'examples' => array(
-        'drush dwn https://example.com/xml.rpc' => 'Reports metrics to server.',
+        'drush dwn https://example.com/ YOUR_API_KEY' => 'Reports metrics to server with personal API key.',
       ),
     ),
   );
