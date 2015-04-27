@@ -18,7 +18,7 @@ function watchtower_drush_command() {
       'description' => 'Report configured metrics to Watchtower server.',
       'arguments' => array(
         'url' => 'Server url to report.',
-        'key' => 'Auth key (site machine name).',
+        'key' => 'API key for server.',
       ),
       'options' => array(
         'metrics' => 'Categories to report (not supported).',
@@ -35,6 +35,7 @@ function watchtower_drush_command() {
       'description' => 'Report configured metrics to Watchtower server for all nginx sites defined.',
       'arguments' => array(
         'url' => 'The url of report server',
+        'key' => 'API key for server.',
         'folder' => 'Nginx folder to scan, default to /etc/nginx/sites-enabled',
       ),
       'options' => array(
@@ -118,7 +119,6 @@ function watchtower_drush_report() {
     drush_log($msg, 'success');
   }
   else {
-    var_export(xmlrpc_error_msg());
     $msg = dt('Error sending report: @e', array('@e' => xmlrpc_error_msg()));
     drush_log($msg, 'error');
   }
@@ -258,11 +258,24 @@ function watchtower_search_patches($modules, $recursive = FALSE) {
 /**
  * Scans nginx sites and try to rend report on each.
  */
-function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-enabled') {
+function watchtower_drush_report_nginx($url = '', $key = '', $folder = '/etc/nginx/sites-enabled') {
+  $url = rtrim($url, '/') . '/xmlrpc.php';
   if (!_watchtower_valid_url($url)) {
     drush_log('Please provide valid url of report server.', 'error');
     return FALSE;
   }
+  if (empty($key)) {
+    $msg = dt('No API key provided.');
+    drush_log($msg, 'error');
+    return FALSE;
+  }
+  $parts = explode(':', $key);
+  if (count($parts) !== 2 || !is_numeric($parts[0])) {
+    $msg = dt('Wrong API key provided.');
+    drush_log($msg, 'error');
+    return FALSE;
+  }
+
   // Collect all files.
   $files = glob(rtrim($folder, '/') . '/*');
   foreach ($files as $file) {
@@ -277,12 +290,12 @@ function watchtower_drush_report_nginx($url = '', $folder = '/etc/nginx/sites-en
 
         // @todo Make compatible with 6+ drush version.
         if (drush_valid_drupal_root($root)) {
-          echo "Trying send report: drush -l $host -r $root dwr --url=$url \n";
+          echo "Trying send report: drush -l $host -r $root dwr $url $key\n";
 
           // @todo Use the same executable.
           $command = 'drush -l ' . escapeshellarg($host) .
             ' -r ' . escapeshellarg($root) .
-            ' dwr --url=' .  escapeshellarg($url);
+            ' dwr ' .  escapeshellarg($url) . ' ' . escapeshellarg($key);
 
           $descriptors = array(
             // stdin.
