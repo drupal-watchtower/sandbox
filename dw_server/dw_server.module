@@ -19,11 +19,117 @@ function dw_server_help($path, $arg) {
 }
 
 /**
+ * Implementation of hook_menu().
+ *
+ * The function handles messages and access handling.
+ */
+function dw_server_menu() {
+  // Get user API key for remote submissions.
+  $items['watchtower/key/%'] = array(
+    'title' => 'Your API key',
+    'page callback' => 'dw_server_key_page',
+    'page arguments' => array(2),
+    'access arguments' => array('submit watchtower reports'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Generate API key for user, given a public client token sent over.
+ *
+ * @param string $client_token
+ *   The client token to generate hash.
+ *
+ * @return array
+ *   Build array for render.
+ */
+function dw_server_key_page($client_token) {
+  global $user;
+  $build['api_key'] = array(
+    '#type' => 'item',
+    '#title' => t('Your Watchtower Server API key'),
+    '#markup' => dw_server_user_api_key($user->uid, $client_token),
+    '#description' => t('Copy and paste this API key into client settings on the client host.'),
+  );
+  return $build;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function dw_server_permission() {
+  return array('submit watchtower reports');
+}
+
+/**
  * Implements hook_xmlrpc().
  */
 function dw_server_xmlrpc() {
   return array(
-    'drupal_watchtower.report' => 'dw_server_process_report',
+    array(
+      'drupal_watchtower.status',
+      'dw_server_xmlrpc_status',
+      array('struct', 'string', 'string', 'string'),
+      t('Test support for a specific API version.'),
+    ),
+    array(
+      'drupal_watchtower.report',
+      'dw_server_process_report',
+      array('string', 'struct', 'int', 'string', 'string'),
+      t('Handle remote instance submissions.'),
+    ),
+  );
+}
+
+/**
+ * Get API key for remote submission.
+ *
+ * This API key will contain a visible user id and a signature from the server.
+ *
+ * @param int $uid
+ *   The local UID.
+ * @param string $salt
+ *   A signature from remote host.
+ *
+ * @return string
+ *   The API key for user with passed in salt.
+ */
+function dw_server_user_api_key($uid, $salt) {
+  $private_key = drupal_get_private_key();
+  $hash_salt = drupal_get_hash_salt();
+  return $uid . ':' . drupal_hmac_base64("Watchtower:$uid:$salt", $private_key . $hash_salt);
+}
+
+/**
+ * XML-RPC callback to test the interface from the client.
+ *
+ * Returns:
+ *  - 'service': Service name
+ *  - 'version': Service version
+ *  - 'name': Site name
+ *  - 'features': Accepted reports (tbd)
+ *  - 'supported': Whether the asked version is supported or not
+ *  - 'valid': Whether the asked token is valid or not
+ */
+function dw_server_xmlrpc_status($version, $client_token, $api_key) {
+  $authorized = FALSE;
+  // Format should be UID:HASH string.
+  $api_values = explode(':', $api_key);
+  if (count($api_values) == 2) {
+    // @todo Move to separate method to prevent brute force attacks, flood?.
+    $authorized = dw_server_user_api_key($api_values[0], $client_token) === $api_key;
+  }
+  return array(
+    // Watchtower server data.
+    'service' => 'Watchtower reports collector interface',
+    'version' => '1.0',
+    'supported' => $version === '1.0',
+    'features' => implode(', ', array('modules', 'patches')),
+    // Website data.
+    'name' => variable_get('site_name', 'Drupal'),
+    'auth' => $authorized,
   );
 }
 
@@ -35,7 +141,15 @@ function dw_server_xmlrpc() {
  *
  * @return string
  */
-function dw_server_process_report($report_data) {
+function dw_server_process_report($report_data, $uid, $client_token, $signature) {
+  $api_key = dw_server_user_api_key($uid, $client_token);
+  // Check the report signature.
+  $current_signature = md5($api_key . json_encode($report_data) . $client_token);
+  if ($current_signature !== $signature) {
+    // @todo Add flood support.
+    return xmlrpc_error(-32500, t('Signature error'));
+  }
+
   module_load_include('inc', 'dw_server', 'dw_server.xmlrpc');
 
   $default = array(

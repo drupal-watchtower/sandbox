@@ -99,7 +99,10 @@ function dw_client_modules_disabled($modules) {
  *   Is result successful.
  */
 function _dw_client_report($force = FALSE) {
-  if ($watchtower = variable_get('watchtower_server', FALSE)) {
+  $watchtower = variable_get('watchtower_server', '');
+  $server_url = $watchtower . 'xmlrpc.php';
+  $api_key = variable_get('watchtower_api_key', '');
+  if (valid_url($server_url) && !empty($api_key)) {
     $time = time();
     if ($force || ($time - variable_get('watchtower_last_report', 0) >= variable_get('watchtower_report_threshold', WATCHTOWER_DEFAULT_REPORT_THRESHOLD))) {
       // This could be called from drush command so file can be loaded already
@@ -108,8 +111,20 @@ function _dw_client_report($force = FALSE) {
         module_load_include('inc', 'dw_client', 'watchtower.drush');
       }
 
-      $result = xmlrpc($watchtower, array(
-        'drupal_watchtower.report' => array(watchtower_get_default_report()),
+      $report = watchtower_get_default_report();
+      $server_uid = (int) current(explode(':', $api_key));
+      $current_site_key = watchtower_get_drupal_site_key();
+      // Sign data with api_key.
+      // @todo is that enough?
+      $signature = md5($api_key . json_encode($report) . $current_site_key);
+      //$signature = json_encode($report);
+      $result = xmlrpc($server_url, array(
+        'drupal_watchtower.report' => array(
+          $report,
+          $server_uid,
+          $current_site_key,
+          $signature
+        ),
       ));
 
       if (!$result) {

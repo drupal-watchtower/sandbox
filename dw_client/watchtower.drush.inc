@@ -103,16 +103,26 @@ function watchtower_drush_report() {
 }
 
 /**
+ * Returns the drupal instance site hash.
+ *
+ * @return string
+ *   The key for the drupal instance.
+ */
+function watchtower_get_drupal_site_key() {
+  $private_key = drupal_get_private_key();
+  $hash_salt = drupal_get_hash_salt();
+  // @todo Use better hash.
+  return drupal_hmac_base64('Watchtower', $private_key . $hash_salt);
+}
+
+/**
  * Returns array of default report with metrics.
  *
  * @return array
  *   Keyed array with metrics and their values.
  */
 function watchtower_get_default_report() {
-  $private_key = drupal_get_private_key();
-  $hash_salt = drupal_get_hash_salt();
-  // @todo Use better hash.
-  $watchtower_site_key = drupal_hmac_base64('Watchtower', $private_key . $hash_salt);
+  $watchtower_site_key = watchtower_get_drupal_site_key();
   $drupal_root = DRUPAL_ROOT;
   $conf_path = conf_path();
   $memory_limit = ini_get('memory_limit');
@@ -163,7 +173,9 @@ function watchtower_get_default_report() {
         'name' => $module->info['name'],
         'description' => $module->info['description'],
         'package' => $module->info['package'],
-        'version' => $module->info['version'],
+        // Convert NULL to string because server will convert them to spaces and
+        // hash calculation could be broken.
+        'version' => empty($module->info['version']) ? '' : $module->info['version'],
       );
     }
   }
