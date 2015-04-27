@@ -29,7 +29,7 @@ function dw_server_menu() {
     'title' => 'Your API key',
     'page callback' => 'dw_server_key_page',
     'page arguments' => array(2),
-    'access arguments' => array('submit watchtower reports'),
+    'access arguments' => array('watchtower submit reports'),
     'type' => MENU_CALLBACK,
   );
 
@@ -60,7 +60,11 @@ function dw_server_key_page($client_token) {
  * Implements hook_permission().
  */
 function dw_server_permission() {
-  return array('submit watchtower reports');
+  return array(
+    'watchtower submit reports' => array(
+      'title' => t('Submit watchtower reports')
+    ),
+  );
 }
 
 /**
