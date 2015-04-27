@@ -71,6 +71,16 @@ function dw_server_process_report($report_data) {
   // Keep metrics ordered.
   ksort($metrics);
 
+
+  // Store core version in separate field for filtering.
+  if (isset($metrics['site:core:version'])) {
+    $node->get('field_core_version')->set($metrics['site:core:version']);
+  }
+  // Populate site domain.
+  if (isset($metrics['site:core:base_url'])) {
+    $node->get('field_domain')->set($metrics['site:core:base_url']);
+  }
+
   // Fills field_metrics field.
   $metrics_save = array();
   foreach ($metrics as $k => $v) {

@@ -156,7 +156,7 @@ function _dw_server_get_patches_nids($module_patches) {
       // Module could be patched but not installed yet.
       $term = entity_create('taxonomy_term', array(
         'vid' => WATCHTOWER_MODULES_VID,
-        'name' => $module_name,
+        'name' => $module_version_name,
         'parent' => $module_tid,
         'description'=> t('Disabled'),
       ));
