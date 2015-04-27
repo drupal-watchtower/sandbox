@@ -116,8 +116,8 @@ function _dw_client_report($force = FALSE) {
       $current_site_key = watchtower_get_drupal_site_key();
       // Sign data with api_key.
       // @todo is that enough?
-      $signature = md5($api_key . json_encode($report) . $current_site_key);
-      //$signature = json_encode($report);
+      $signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path'] . $current_site_key);
+
       $result = xmlrpc($server_url, array(
         'drupal_watchtower.report' => array(
           $report,

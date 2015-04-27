@@ -17,15 +17,15 @@ function watchtower_drush_command() {
       'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
       'description' => 'Report configured metrics to Watchtower server.',
       'arguments' => array(
+        'url' => 'Server url to report.',
+        'key' => 'Auth key (site machine name).',
       ),
       'options' => array(
-        'url' => 'Server url to report.',
         'metrics' => 'Categories to report (not supported).',
-        'key' => 'Auth key (site machine name).',
       ),
       'examples' => array(
         'drush dwr' => 'Reports metrics to configured server.',
-        'drush dwr --url=https://example.com/xmlrpc.php' => 'Same as above, but using the server.',
+        'drush dwr https://example.com/ YOUR_API_KEY' => 'Same as above, but using the server and user API key.',
       ),
     ),
     'dw_report_nginx' => array(
@@ -62,17 +62,17 @@ function watchtower_drush_help($section) {
  * Drush callback: dw_report.
  */
 function watchtower_drush_report() {
-  $msg_success = dt('Report has been send.');
-  $msg_error = dt('Report has not been send.');
-
-  $url = drush_get_option('url');
-  if (!valid_url($url, TRUE)) {
+  $args = drush_get_arguments();
+  if (empty($args[1]) || !_watchtower_valid_url($args[1])) {
+    // Try to execute client.
     if (module_exists('dw_client')) {
       if (_dw_client_report(TRUE)) {
-        drush_log($msg_success, 'success');
+        $msg = dt('Report has been send.');
+        drush_log($msg, 'success');
       }
       else {
-        drush_log($msg_error, 'error');
+        $msg = dt('Report has not been send.');
+        drush_log($msg, 'error');
       }
       return;
     }
@@ -81,24 +81,46 @@ function watchtower_drush_report() {
     return;
   }
 
-  if ($key = drush_get_option('key')) {
-    // @todo Decide on bundle
-    $metrics['key'] = $key;
+  if (empty($args[2])) {
+    $msg = dt('No API key provided.');
+    drush_log($msg, 'error');
+    return;
   }
-  else {
-    $metrics['key'] = 'Anonymous';
+  $api_key = $args[2];
+  $parts = explode(':', $api_key);
+  if (count($parts) !== 2 || !is_numeric($parts[0])) {
+    $msg = dt('Wrong API key provided.');
+    drush_log($msg, 'error');
+    return;
   }
 
   $report = watchtower_get_default_report();
   // Add drush metrics.
   $report['metrics']['drush:version'] = DRUSH_VERSION;
 
-  if ($result = xmlrpc($url, array('drupal_watchtower.report' => array($report)))) {
+  // @todo Add better signature.
+  $signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path']);
+  drush_log($signature, 'ok');
+
+  $server_url = rtrim($args[1], '/') . '/xmlrpc.php';
+  //$server_url = rtrim($args[1], '/') . '/xmlrpc.php?XDEBUG_SESSION_START=1';
+  $result = xmlrpc($server_url, array(
+    'drupal_watchtower.report' => array(
+      $report,
+      // User should be parsed from API key.
+      0,
+      $api_key,
+      $signature
+    ),
+  ));
+  if ($result) {
     $msg = dt('Report has been send. Response !r', array('!r' => $result));
     drush_log($msg, 'success');
   }
   else {
-    drush_log($msg_error, 'error');
+    var_export(xmlrpc_error_msg());
+    $msg = dt('Error sending report: @e', array('@e' => xmlrpc_error_msg()));
+    drush_log($msg, 'error');
   }
 }
 

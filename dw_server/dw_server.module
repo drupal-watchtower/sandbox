@@ -136,16 +136,39 @@ function dw_server_xmlrpc_status($version, $client_token, $api_key) {
 /**
  * Processes XML RPC request
  *
- * @param array $report_data
+ * @param array $report
  *   The data from client.
+ * @param int $uid
+ *   The UID at the server or 0 for drush API key.
+ * @param string $client_token
+ *   The site hash or user API key.
+ * @param string $signature
+ *   The signature for report.
  *
- * @return string
+ * @return string|object
+ *   New report node URL or error object.
  */
-function dw_server_process_report($report_data, $uid, $client_token, $signature) {
-  $api_key = dw_server_user_api_key($uid, $client_token);
+function dw_server_process_report($report, $uid, $client_token, $signature) {
+  if (empty($uid)) {
+    // Drush reports are signed with personal API keys.
+    list($uid, ) = explode(':', $client_token);
+    $account = user_load($uid);
+    if ($account && $account->status) {
+      // Check API key for user's current mail.
+      $api_key = dw_server_user_api_key($account->uid, $account->mail);
+      if ($api_key === $client_token) {
+        $current_signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path']);
+      }
+    }
+  }
+  else {
+    // Client module API key.
+    $api_key = dw_server_user_api_key($uid, $client_token);
+    $current_signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path'] . $client_token);
+  }
+
   // Check the report signature.
-  $current_signature = md5($api_key . json_encode($report_data) . $client_token);
-  if ($current_signature !== $signature) {
+  if (!isset($current_signature) || $current_signature !== $signature) {
     // @todo Add flood support.
     return xmlrpc_error(-32500, t('Signature error'));
   }
@@ -158,9 +181,13 @@ function dw_server_process_report($report_data, $uid, $client_token, $signature)
     'conf_path' => '',
     'metrics' => array(),
   );
-  $data = drupal_array_merge_deep($default, $report_data);
+  $data = drupal_array_merge_deep($default, $report);
 
   $node = _dw_server_get_instance($data['watchtower_key'], $data['drupal_root'], $data['conf_path'], ip_address());
+
+  // Assign owner of report.
+  // @todo Set current user to assign author for content.
+  $node->get('author')->set($uid);
 
   $metrics = $data['metrics'];
   // Fills field_modules field.
@@ -206,4 +233,21 @@ function dw_server_process_report($report_data, $uid, $client_token, $signature)
   $node->save();
 
   return url('node/' . $node->get('nid')->value(), array('absolute' => TRUE));
+}
+
+/**
+ * Implements hook_user_view().
+ *
+ * Displays personal API key to send reports with drush.
+ */
+function dw_server_user_view($account, $view_mode, $langcode) {
+  if (user_access('submit watchtower reports', $account) && $view_mode == 'full') {
+    $account->content['summary']['watchtower'] =  array(
+      '#type' => 'user_profile_item',
+      '#title' => t('Watchtower personal key'),
+      // @todo Check that mail is good enough salt.
+      '#markup' => dw_server_user_api_key($account->uid, $account->mail),
+      '#attributes' => array('class' => array('watchtower')),
+    );
+  }
 }

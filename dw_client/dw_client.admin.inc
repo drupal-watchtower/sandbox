@@ -92,6 +92,7 @@ function dw_client_settings_form_validate($form, &$form_state) {
     // Ensure trailing slash.
     $server_base_url = trim($values['watchtower_server']);
     $server_base_url = rtrim($server_base_url, '/') . '/';
+
     $server_uri = $server_base_url . '/xmlrpc.php';
     if (valid_url($server_uri)) {
       if (!function_exists('watchtower_get_drupal_site_key')) {
@@ -102,7 +103,7 @@ function dw_client_settings_form_validate($form, &$form_state) {
       $current_site_key = watchtower_get_drupal_site_key();
       $api_key = trim($values['watchtower_api_key']);
 
-      //$signature = md5($user_key . $langcode . $source . $translation . $user_token);
+      // @todo Add signature.
       $response = xmlrpc($server_uri, array(
         'drupal_watchtower.status' => array('1.0', $current_site_key, $api_key),
       ));
