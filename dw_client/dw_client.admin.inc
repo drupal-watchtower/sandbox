@@ -58,7 +58,7 @@ function dw_client_settings_form($form, $form_state) {
     '#type' => 'textfield',
     '#title' => t('Your API key for %server', array('%server' => $reporting_server)),
     '#default_value' => $api_key,
-    '#description' => t('Get a API key at <a href="!server" target="blank">!server</a>', array(
+    '#description' => t('Get a API key at <a href="!server" target="_blank">!server</a>', array(
       '!server' => check_url($server_link),
     ))
   );
