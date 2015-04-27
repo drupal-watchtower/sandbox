@@ -101,7 +101,6 @@ function watchtower_drush_report() {
 
   // @todo Add better signature.
   $signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path']);
-  drush_log($signature, 'ok');
 
   $server_url = rtrim($args[1], '/') . '/xmlrpc.php';
   //$server_url = rtrim($args[1], '/') . '/xmlrpc.php?XDEBUG_SESSION_START=1';
@@ -259,7 +258,7 @@ function watchtower_search_patches($modules, $recursive = FALSE) {
  * Scans nginx sites and try to rend report on each.
  */
 function watchtower_drush_report_nginx($url = '', $key = '', $folder = '/etc/nginx/sites-enabled') {
-  $url = rtrim($url, '/') . '/xmlrpc.php';
+  $url = rtrim($url, '/');
   if (!_watchtower_valid_url($url)) {
     drush_log('Please provide valid url of report server.', 'error');
     return FALSE;
