@@ -245,7 +245,7 @@ function dw_server_process_report($report, $uid, $client_token, $signature) {
  * Displays personal API key to send reports with drush.
  */
 function dw_server_user_view($account, $view_mode, $langcode) {
-  if (user_access('submit watchtower reports', $account) && $view_mode == 'full') {
+  if (user_access('watchtower submit reports', $account) && $view_mode == 'full') {
     $account->content['summary']['watchtower'] =  array(
       '#type' => 'user_profile_item',
       '#title' => t('Watchtower personal key'),
