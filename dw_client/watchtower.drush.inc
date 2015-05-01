@@ -39,6 +39,7 @@ function watchtower_drush_command() {
         'folder' => 'Nginx folder to scan, default to /etc/nginx/sites-enabled',
       ),
       'options' => array(
+        'dry-run' => 'Do not send data',
       ),
       'examples' => array(
         'drush dwn https://example.com/ YOUR_API_KEY' => 'Reports metrics to server with personal API key.',
@@ -103,7 +104,7 @@ function watchtower_drush_report() {
   $signature = md5($api_key . $report['watchtower_key'] . $report['drupal_root'] . $report['conf_path']);
 
   $server_url = rtrim($args[1], '/') . '/xmlrpc.php';
-  //$server_url = rtrim($args[1], '/') . '/xmlrpc.php?XDEBUG_SESSION_START=1';
+  // $server_url = rtrim($args[1], '/') . '/xmlrpc.php?XDEBUG_SESSION_START=1';
   $result = xmlrpc($server_url, array(
     'drupal_watchtower.report' => array(
       $report,
@@ -275,27 +276,56 @@ function watchtower_drush_report_nginx($url = '', $key = '', $folder = '/etc/ngi
     return FALSE;
   }
 
+  $dry_run = drush_get_option('dry-run', 0);
+
   // Collect all files.
   $files = glob(rtrim($folder, '/') . '/*');
   foreach ($files as $file) {
     // Parse file content (server_name & root)
     $content = file_get_contents($file);
     $matches = array();
-    if (preg_match('/root\s*(\S*)/', $content, $matches)) {
-      $root = trim($matches[1], ';');
-      if (preg_match('/server_name\s*(\S*)/', $content, $matches)) {
-        // @todo Parse port.
-        $host = 'http://' . trim($matches[1], ';');
+    if (preg_match('/root\s+([^;]+)/', $content, $matches)) {
+      // Remove trailing ";" if any.
+      $root = trim($matches[1]);
+      // @todo Parse port.
+      if (preg_match('/server_name\s+([^;]+)/', $content, $matches)) {
+        // Server names could be multi-line.
+        foreach (explode(' ', $matches[1]) as $host) {
+          $host = trim($host);
+          if (strpos($host, '*') === FALSE) {
+            // Found first non-wildcard host.
+            break;
+          }
+          else {
+            // Replace wildcard with www to properly bootstrap core.
+            $host = str_replace('*', 'www', $host);
+          }
+        }
+        $host = 'http://' . $host;
 
-        // @todo Make compatible with 6+ drush version.
-        if (drush_valid_drupal_root($root)) {
-          echo "Trying send report: drush -l $host -r $root dwr $url $key\n";
+        if (DRUSH_MAJOR_VERSION == '7') {
+          // Drush 7 changed a name.
+          $function = 'drush_valid_root';
+        }
+        else {
+          // Tested on drush 5-6.
+          $function = 'drush_valid_drupal_root';
+        }
+        if ($function($root)) {
+          drush_log("Found Drupal host = $host with root = $root", 'success');
 
           // @todo Use the same executable.
           $command = 'drush -l ' . escapeshellarg($host) .
             ' -r ' . escapeshellarg($root) .
             ' dwr ' .  escapeshellarg($url) . ' ' . escapeshellarg($key);
 
+          if ($dry_run) {
+            // Do not send report.
+            drush_print("Command: $command\n", 2);
+            continue;
+          }
+
+          drush_print("Sending report: drush -l $host -r $root dwr $url $key", 2);
           $descriptors = array(
             // stdin.
             0 => array('pipe', 'r'),
